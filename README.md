@@ -13,6 +13,8 @@ Production path: `https://thetrustcommons.com/wff/`
 - Generated public names with private login names.
 - Guest reader mode.
 - Semantic search, voting, and year filtering.
+- Dedicated post pages with Reddit-style comment threads.
+- Upvotes and downvotes for both posts and comments.
 - Message requests, accepted private conversations, registered-user chatroom, and PWA notifications.
 - Policy proposal extraction for education, economy, environment, health, and governance.
 
@@ -42,3 +44,7 @@ npm run build
 ```
 
 SQLite database: `backend/wff.db`.
+
+## License
+
+World Foresight Forum is licensed under the GNU Affero General Public License v3.0 or later. See [LICENSE](LICENSE).
