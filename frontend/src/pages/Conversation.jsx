@@ -220,8 +220,8 @@ export default function Conversation() {
 
   return (
     <div className="flex h-[100dvh] min-h-screen flex-col bg-dark-bg">
-      <header className="shrink-0 border-b border-dark-border bg-dark-bg/95 p-4 backdrop-blur z-10">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-4">
+      <header className="app-header shrink-0">
+        <div className="app-header-inner flex items-end justify-between gap-4">
           <IconButton onClick={() => navigate('/messages')} icon="back" label="Back to messages" />
           <IconButton
             type="button"
@@ -231,12 +231,11 @@ export default function Conversation() {
             label={conversation?.other_user?.username || 'Conversation'}
             className="icon-button-primary"
           />
-          <IconButton onClick={() => navigate('/profile')} icon="profile" label="Profile" />
         </div>
       </header>
 
       <main className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
-        {error && <div className="mx-4 mt-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-400">{error}</div>}
+        {error && <div className="mx-4 mt-4 border-l border-primary pl-3 text-sm text-red-400">{error}</div>}
 
         {loading ? (
           <div className="flex flex-1 items-center justify-center text-gray-500">Loading...</div>
@@ -255,17 +254,17 @@ export default function Conversation() {
                     <div key={message.id} className="space-y-3">
                       {currentBucket !== previousBucket && (
                         <div className="flex justify-center">
-                          <span className="rounded-full bg-dark-card px-3 py-1 text-xs text-gray-400">
+                          <span className="text-xs text-gray-400">
                             {currentBucket}
                           </span>
                         </div>
                       )}
                       <div className={`flex ${message.is_mine ? 'justify-end' : 'justify-start'}`}>
                         <div
-                          className={`max-w-[78%] rounded-xl px-4 py-3 text-sm ${
+                          className={`max-w-[78%] px-0 py-3 text-sm ${
                             message.is_mine
-                              ? 'bg-primary text-white'
-                              : 'bg-dark-bg text-gray-100 border border-dark-border'
+                              ? 'text-primary'
+                              : 'text-gray-100'
                           }`}
                         >
                           <p className="whitespace-pre-wrap break-words">{message.body}</p>
@@ -293,14 +292,14 @@ export default function Conversation() {
 
             <form
               onSubmit={handleSubmit}
-              className="sticky bottom-0 flex shrink-0 gap-2 border-t border-dark-border bg-dark-bg/95 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur"
+              className="sticky bottom-0 flex shrink-0 gap-5 border-t border-dark-border bg-dark-bg/95 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur"
             >
               <input
                 type="text"
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder="Write a message..."
-                className="min-w-0 flex-1 rounded-xl border border-dark-border bg-dark-card px-4 py-3 focus:outline-none focus:border-primary"
+                className="min-w-0 flex-1 border-0 border-b px-0 py-3 text-sm focus:outline-none focus:border-primary"
               />
               <IconButton
                 type="submit"
@@ -322,11 +321,11 @@ export default function Conversation() {
             onClick={() => setActionsOpen(false)}
             className="absolute inset-0"
           />
-          <div className="relative w-full max-w-sm rounded-xl border border-dark-border bg-dark-card p-4 shadow-2xl">
+          <div className="relative w-full max-w-sm border border-dark-border bg-dark-card p-4">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs text-gray-500">Conversation</p>
-                <h2 className="break-words text-lg font-semibold text-white">
+                <h2 className="break-words text-lg font-medium text-white">
                   {conversation.other_user?.username}
                 </h2>
               </div>
@@ -343,7 +342,7 @@ export default function Conversation() {
                 type="button"
                 onClick={() => handleConversationAction('delete')}
                 disabled={Boolean(closingAction)}
-                className="w-full rounded-lg border border-dark-border px-4 py-3 text-left text-sm text-gray-100 hover:border-primary disabled:opacity-60"
+                className="w-full border-t border-dark-border py-3 text-left text-sm text-gray-100 disabled:opacity-60"
               >
                 Delete chat
               </button>
@@ -351,7 +350,7 @@ export default function Conversation() {
                 type="button"
                 onClick={() => handleConversationAction('unfriend')}
                 disabled={Boolean(closingAction)}
-                className="w-full rounded-lg border border-dark-border px-4 py-3 text-left text-sm text-gray-100 hover:border-primary disabled:opacity-60"
+                className="w-full border-t border-dark-border py-3 text-left text-sm text-gray-100 disabled:opacity-60"
               >
                 Remove connection
               </button>
@@ -359,7 +358,7 @@ export default function Conversation() {
                 type="button"
                 onClick={() => handleConversationAction('block')}
                 disabled={Boolean(closingAction)}
-                className="w-full rounded-lg border border-red-900/60 px-4 py-3 text-left text-sm font-semibold text-primary hover:bg-red-950/30 disabled:opacity-60"
+                className="w-full border-t border-dark-border py-3 text-left text-sm font-semibold text-primary disabled:opacity-60"
               >
                 Block
               </button>

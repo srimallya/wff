@@ -4,6 +4,7 @@ import { API_BASE } from '../api'
 import { useStore } from '../store/zustandStore'
 import EssayCard from '../components/EssayCard'
 import { IconButton } from '../components/Icons'
+import BottomNav from '../components/BottomNav'
 
 function CommentCard({ comment, onVote }) {
   const [score, setScore] = useState(comment.score || 0)
@@ -21,7 +22,7 @@ function CommentCard({ comment, onVote }) {
   }
 
   return (
-    <div className="rounded-xl border border-dark-border bg-dark-card p-4">
+    <div className="border-t border-dark-border py-4">
       <div className="flex gap-4">
         <div className="flex flex-col items-center gap-1">
           <button onClick={() => handleVote(1)} className={userVote === 1 ? 'text-primary' : 'text-gray-500 hover:text-primary'}>▲</button>
@@ -34,7 +35,7 @@ function CommentCard({ comment, onVote }) {
             <span className="mx-2">•</span>
             <span>{new Date(comment.created_at).toLocaleString()}</span>
           </div>
-          <p className="whitespace-pre-wrap break-words text-base leading-relaxed">{comment.content}</p>
+          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{comment.content}</p>
           <p className="text-xs text-gray-500">{votes.upvotes} ▲ {votes.downvotes} ▼</p>
         </div>
       </div>
@@ -113,39 +114,38 @@ export default function PostDetail() {
   }
 
   return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 z-10 border-b border-dark-border bg-dark-bg/95 p-4 backdrop-blur">
-        <div className="mx-auto flex max-w-2xl items-center justify-between">
+    <div className="app-shell">
+      <header className="app-header">
+        <div className="app-header-inner flex items-end justify-between gap-4">
           <IconButton onClick={() => navigate('/feed')} icon="back" label="Back to feed" />
-          <h1 className="text-sm font-semibold">Discussion</h1>
-          <IconButton onClick={() => navigate('/profile')} icon="profile" label="Profile" />
+          <h1 className="app-title">Discussion</h1>
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl space-y-6 px-4 py-6">
+      <main className="mx-auto max-w-2xl space-y-7 px-5 py-6">
         {loading ? (
           <div className="py-12 text-center text-gray-500">Loading...</div>
         ) : error && !post ? (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-600">{error}</div>
+          <div className="border-l border-primary pl-3 text-sm text-red-600">{error}</div>
         ) : post ? (
           <>
             <EssayCard essay={post} />
 
             <section className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold">Comments</h2>
+                <h2 className="text-base font-medium">Comments</h2>
                 <span className="text-sm text-gray-500">{comments.length}</span>
               </div>
 
               {user.username ? (
-                <form onSubmit={submitComment} className="space-y-3 rounded-xl border border-dark-border bg-dark-card p-4">
+                <form onSubmit={submitComment} className="space-y-3 border-t border-dark-border pt-4">
                   {error && <p className="text-sm text-red-600">{error}</p>}
                   <textarea
                     value={content}
                     onChange={(event) => setContent(event.target.value.slice(0, 1000))}
                     placeholder="Add to the discussion..."
                     rows={4}
-                    className="w-full resize-none rounded-xl border border-dark-border bg-dark-bg px-4 py-3 focus:border-primary focus:outline-none"
+                    className="w-full resize-none border-0 border-b px-0 py-3 text-sm focus:border-primary focus:outline-none"
                   />
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500">{content.length}/1000</span>
@@ -153,14 +153,14 @@ export default function PostDetail() {
                   </div>
                 </form>
               ) : (
-                <div className="rounded-xl border border-dark-border bg-dark-card p-4 text-sm text-gray-500">
+                <div className="border-t border-dark-border py-4 text-sm text-gray-500">
                   Log in or continue as guest to comment and vote.
                 </div>
               )}
 
               <div className="space-y-3">
                 {comments.length === 0 ? (
-                  <div className="rounded-xl border border-dark-border bg-dark-card p-5 text-center text-sm text-gray-500">No comments yet</div>
+                  <div className="border-t border-dark-border py-5 text-center text-sm text-gray-500">No comments yet</div>
                 ) : (
                   comments.map((comment) => <CommentCard key={comment.id} comment={comment} onVote={voteComment} />)
                 )}
@@ -169,6 +169,7 @@ export default function PostDetail() {
           </>
         ) : null}
       </main>
+      <BottomNav />
     </div>
   )
 }

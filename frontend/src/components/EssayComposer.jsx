@@ -23,18 +23,18 @@ export default function EssayComposer({ onSubmit, isSubmitting }) {
 
   return (
     <div className="space-y-6">
-      <div className="bg-dark-card p-6 rounded-xl border border-dark-border">
-        <h3 className="text-lg font-semibold mb-6">Which future are you writing for?</h3>
+      <div className="swiss-panel">
+        <h3 className="mb-6 text-base font-medium">Which future are you writing for?</h3>
         <TimeSlider value={lookAheadMonths} onChange={setLookAheadMonths} />
       </div>
 
-      <div className="bg-dark-card p-6 rounded-xl border border-dark-border space-y-2">
+      <div className="swiss-panel space-y-2">
         <label className="block text-sm text-gray-400" htmlFor="country">Country</label>
         <select
           id="country"
           value={countryCode}
           onChange={(event) => setCountryCode(event.target.value)}
-          className="w-full px-4 py-3 bg-dark-bg border border-dark-border rounded-lg focus:outline-none focus:border-primary text-white"
+          className="w-full border-0 border-b px-0 py-3 text-sm focus:outline-none focus:border-primary"
         >
           {COUNTRIES.map((country) => (
             <option key={country.code} value={country.code}>{country.name}</option>
@@ -43,9 +43,9 @@ export default function EssayComposer({ onSubmit, isSubmitting }) {
         <p className="text-xs text-gray-500">Choose Global when the post is not tied to one country.</p>
       </div>
 
-      <div className="bg-dark-card p-6 rounded-xl border border-dark-border space-y-4">
+      <div className="swiss-panel space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Your foresight post</h3>
+          <h3 className="text-base font-medium">Your foresight post</h3>
         </div>
 
         <textarea
@@ -53,7 +53,7 @@ export default function EssayComposer({ onSubmit, isSubmitting }) {
           onChange={(e) => setContent(e.target.value)}
           maxLength={2000}
           placeholder="Write a public foresight note about policy, governance, climate, technology, education, cities, culture, work, or everyday life..."
-          className="w-full h-64 p-4 bg-dark-bg border border-dark-border rounded-lg resize-none focus:outline-none focus:border-primary text-base"
+          className="w-full h-64 resize-none border-0 border-b px-0 py-3 text-sm focus:outline-none focus:border-primary"
         />
 
         <div className="flex items-center justify-between">

@@ -32,7 +32,7 @@ export default function EssayCard({ essay }) {
       onKeyDown={(event) => {
         if (!essay.is_pending && (event.key === 'Enter' || event.key === ' ')) navigate(`/posts/${essay.id}`)
       }}
-      className="bg-dark-card border border-dark-border rounded-xl p-5 cursor-pointer transition hover:border-primary/70"
+      className="border-t border-dark-border py-5 cursor-pointer transition"
     >
       <div className="flex gap-4">
         <div className="flex flex-col items-center gap-1 pt-1">
@@ -77,7 +77,7 @@ export default function EssayCard({ essay }) {
             <span>•</span>
             <span>{essay.target_calendar_year}</span>
           </div>
-          <p className="text-base leading-relaxed whitespace-pre-wrap">{essay.content}</p>
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">{essay.content}</p>
           <div className="flex items-center justify-end text-xs text-gray-600">
             <span>{localVotes.upvotes} ▲ {localVotes.downvotes} ▼</span>
             <span className="ml-3">{essay.comment_count || 0} comments</span>

@@ -26,7 +26,7 @@ export default function TimeSlider({ value, onChange }) {
     <div className="w-full space-y-6">
       <div className="flex items-center justify-between text-sm">
         <span className="text-gray-400">Now</span>
-        <span className="text-primary font-semibold text-lg">{label}</span>
+        <span className="text-primary font-medium text-base">{label}</span>
         <span className="text-gray-400">Future</span>
       </div>
       <input
@@ -35,16 +35,16 @@ export default function TimeSlider({ value, onChange }) {
         max={1200}
         value={value}
         onChange={(e) => onChange(parseInt(e.target.value))}
-        className="w-full h-2 bg-dark-border rounded-lg appearance-none cursor-pointer accent-primary"
+        className="w-full h-px bg-dark-border appearance-none cursor-pointer accent-primary"
       />
       <div className="grid grid-cols-2 gap-4">
-        <div className="bg-dark-card p-4 rounded-lg border border-dark-border">
+        <div className="border-t border-dark-border pt-3">
           <p className="text-xs text-gray-400 mb-1">Calendar year</p>
-          <p className="text-2xl font-semibold text-primary">{calendarYear}</p>
+          <p className="text-xl font-medium text-primary">{calendarYear}</p>
         </div>
-        <div className="bg-dark-card p-4 rounded-lg border border-dark-border">
+        <div className="border-t border-dark-border pt-3">
           <p className="text-xs text-gray-400 mb-1">Time</p>
-          <p className="text-2xl font-semibold text-primary">{label}</p>
+          <p className="text-xl font-medium text-primary">{label}</p>
         </div>
       </div>
     </div>

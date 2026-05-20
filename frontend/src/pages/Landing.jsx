@@ -1,36 +1,39 @@
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/zustandStore'
-import { Icon, IconButton } from '../components/Icons'
+import { IconButton } from '../components/Icons'
 
 export default function Landing() {
   const navigate = useNavigate()
   const { user, initGuest } = useStore()
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4">
-      <div className="text-center space-y-8 max-w-3xl swiss-squircle border border-dark-border bg-dark-card px-8 py-12 shadow-[0_24px_80px_rgba(17,17,17,0.08)]">
-        <div className="space-y-2">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-white">
-            <Icon name="globe" className="h-8 w-8" />
-          </div>
-          <h1 className="text-5xl md:text-7xl font-bold text-swiss-black mb-2">
+    <div className="min-h-screen px-5 py-8">
+      <div className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-3xl flex-col justify-between">
+        <div className="flex justify-between text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-gray-500">
+          <span>World</span>
+          <span>Foresight</span>
+          <span>Forum</span>
+        </div>
+
+        <div className="space-y-8">
+          <h1 className="max-w-xl text-5xl font-medium leading-[1.02] text-swiss-black md:text-7xl">
             {user.username ? 'World Foresight Forum' : 'Future'}
           </h1>
-          <p className="text-lg text-gray-400">
+          <p className="max-w-md text-base text-gray-400">
             {user.username
               ? 'A global forum for public foresight'
               : 'What future do you see coming?'}
           </p>
+
+          <p className="max-w-lg border-t border-dark-border pt-5 text-sm leading-relaxed text-gray-300">
+            Write and compare public foresight about policy, governance, climate,
+            technology, culture, work, cities, and everyday life across the world.
+          </p>
         </div>
 
-        <p className="text-base text-gray-300 leading-relaxed max-w-lg mx-auto">
-          Write and compare public foresight about policy, governance, climate,
-          technology, culture, work, cities, and everyday life across the world.
-        </p>
-
-        <div className="space-y-3 pt-4">
+        <div className="space-y-4 border-t border-dark-border pt-5">
           {user.username ? (
-            <div className="space-y-3">
+            <div className="flex gap-6">
               <IconButton
                 onClick={() => navigate('/feed')}
                 icon="forum"
@@ -41,11 +44,11 @@ export default function Landing() {
                 onClick={() => navigate('/compose')}
                 icon="edit"
                 label="Write"
-                className="mx-auto"
+                className=""
               />
             </div>
           ) : (
-            <div className="flex justify-center gap-3 pt-2">
+            <div className="flex gap-6">
               <IconButton
                 onClick={() => navigate('/login')}
                 icon="enter"

@@ -23,8 +23,8 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['Georgia', 'Times New Roman', 'serif'],
-        serif: ['Georgia', 'Times New Roman', 'serif'],
+        sans: ['Avenir Next', 'Avenir', 'Helvetica Neue', 'Arial', 'sans-serif'],
+        serif: ['Avenir Next', 'Avenir', 'Helvetica Neue', 'Arial', 'sans-serif'],
       }
     },
   },

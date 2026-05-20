@@ -29,7 +29,6 @@ export function Icon({ name, className = 'h-5 w-5', title }) {
 export function IconButton({ icon, label, className = '', ...props }) {
   return (
     <button {...props} aria-label={label} title={label} className={`icon-button ${className}`}>
-      <Icon name={icon} />
       <span className="icon-button-label">{label}</span>
     </button>
   )

@@ -3,10 +3,12 @@
 @tailwind utilities;
 
 body {
-  background-color: #f7f5ef;
+  background-color: #fbfbf8;
   color: #111111;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: "Avenir Next", Avenir, "Helvetica Neue", Arial, sans-serif;
   letter-spacing: 0;
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 button,
@@ -20,7 +22,7 @@ select {
 .rounded-lg,
 .rounded-xl,
 .rounded-2xl {
-  border-radius: 24px;
+  border-radius: 0;
 }
 
 .rounded-full {
@@ -53,42 +55,41 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  min-width: 2.75rem;
+  gap: 0;
+  min-width: 0;
   width: auto !important;
-  height: 2.75rem;
-  padding: 0 1rem;
-  border-radius: 999px;
-  border: 1px solid #d8d5c7;
-  background: #ffffff;
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
   color: #111111;
-  box-shadow: 0 8px 24px rgba(17, 17, 17, 0.08);
-  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, color 160ms ease;
+  box-shadow: none;
+  transition: color 160ms ease, opacity 160ms ease;
 }
 
 .icon-button-label {
   display: inline-block;
   white-space: nowrap;
-  font-size: 0.9rem;
-  font-weight: 700;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 .icon-button:hover {
-  transform: translateY(-1px);
-  border-color: #e30613;
   color: #e30613;
 }
 
 .icon-button-primary {
-  background: #e30613;
-  border-color: #e30613;
-  color: #ffffff;
+  background: transparent;
+  border-color: transparent;
+  color: #e30613;
 }
 
 .icon-button-primary:hover {
-  background: #111111;
-  border-color: #111111;
-  color: #ffffff;
+  background: transparent;
+  border-color: transparent;
+  color: #111111;
 }
 
 .icon-button:disabled {
@@ -98,7 +99,7 @@ select {
 }
 
 .swiss-squircle {
-  border-radius: 32px;
+  border-radius: 0;
 }
 
 .slider-track {
@@ -107,4 +108,130 @@ select {
 
 .slider-thumb {
   @apply w-6 h-6 rounded-full bg-primary cursor-pointer shadow-lg;
+}
+
+.icon-button svg {
+  display: none;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1px solid #d9d9d2;
+  background: rgba(251, 251, 248, 0.96);
+  backdrop-filter: blur(12px);
+}
+
+.app-header-inner {
+  margin: 0 auto;
+  max-width: 42rem;
+  padding: calc(env(safe-area-inset-top) + 1rem) 1.25rem 0.9rem;
+}
+
+.app-kicker {
+  color: #8b8d8f;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.app-title {
+  color: #111111;
+  font-size: 1.15rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.app-shell {
+  min-height: 100dvh;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 5rem);
+}
+
+.bottom-tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  border-top: 1px solid #d9d9d2;
+  background: rgba(251, 251, 248, 0.96);
+  backdrop-filter: blur(14px);
+}
+
+.bottom-tabbar-inner {
+  margin: 0 auto;
+  display: grid;
+  max-width: 42rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 0.7rem 1.25rem calc(env(safe-area-inset-bottom) + 0.7rem);
+}
+
+.bottom-tab {
+  color: #5f6265;
+  font-size: 0.76rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.bottom-tab-active {
+  color: #e30613;
+}
+
+.swiss-tabs {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+  overflow-x: auto;
+  border-bottom: 1px solid #d9d9d2;
+  padding-bottom: 0.7rem;
+}
+
+.swiss-tab {
+  color: #5f6265;
+  font-size: 0.82rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.swiss-tab-active {
+  color: #e30613;
+}
+
+.swiss-panel {
+  border-top: 1px solid #d9d9d2;
+  background: transparent;
+  padding-top: 1.15rem;
+}
+
+.swiss-action {
+  color: #e30613;
+  font-weight: 600;
+}
+
+.swiss-line-button {
+  color: #111111;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+input,
+textarea,
+select {
+  border-radius: 0 !important;
+  background-color: transparent !important;
+  border-color: #d9d9d2 !important;
+  color: #111111 !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #a3a3a0;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 500;
 }

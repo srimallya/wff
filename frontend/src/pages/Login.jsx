@@ -27,15 +27,15 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4">
-      <div className="w-full max-w-md space-y-6">
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-primary">World Foresight Forum</h1>
-          <p className="text-gray-400 text-sm">Log in</p>
+    <div className="min-h-screen px-5 py-8">
+      <div className="mx-auto w-full max-w-md space-y-8">
+        <div className="space-y-2 border-b border-dark-border pb-5">
+          <p className="app-kicker">World Foresight Forum</p>
+          <h1 className="app-title">Log in</h1>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-dark-card p-6 rounded-xl border border-dark-border space-y-4">
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {error && <p className="border-l border-primary pl-3 text-sm text-red-500">{error}</p>}
 
           <div>
             <label className="block text-sm text-gray-400 mb-1">Username</label>
@@ -43,7 +43,7 @@ export default function Login() {
               type="text"
               value={realUsername}
               onChange={(e) => setRealUsername(e.target.value)}
-              className="w-full px-4 py-3 bg-dark-bg border border-dark-border rounded-lg focus:outline-none focus:border-primary text-white"
+              className="w-full border-0 border-b px-0 py-3 text-sm focus:outline-none focus:border-primary"
               placeholder="Your username"
               required
             />
@@ -55,7 +55,7 @@ export default function Login() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-dark-bg border border-dark-border rounded-lg focus:outline-none focus:border-primary text-white"
+              className="w-full border-0 border-b px-0 py-3 text-sm focus:outline-none focus:border-primary"
               placeholder="Password"
               required
             />
@@ -66,16 +66,16 @@ export default function Login() {
             disabled={loading}
             icon="enter"
             label={loading ? 'Logging in' : 'Log in'}
-            className="icon-button-primary mx-auto"
+            className="icon-button-primary"
           />
         </form>
 
-        <div className="flex justify-between text-sm">
+        <div className="flex justify-between border-t border-dark-border pt-5 text-sm">
           <IconButton onClick={() => navigate('/forgot-password')} icon="spark" label="Forgot password" />
           <IconButton onClick={() => navigate('/signup')} icon="profile" label="Create account" />
         </div>
 
-        <IconButton onClick={() => navigate('/')} icon="back" label="Go back" className="mx-auto" />
+        <IconButton onClick={() => navigate('/')} icon="back" label="Go back" />
       </div>
     </div>
   )

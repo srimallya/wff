@@ -54,14 +54,14 @@ export default function Chatroom() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-17rem)] min-h-[24rem] flex-col overflow-hidden rounded-xl border border-dark-border bg-dark-card">
+    <div className="flex h-[calc(100dvh-17rem)] min-h-[24rem] flex-col overflow-hidden border-t border-dark-border bg-transparent">
       <div className="shrink-0 border-b border-dark-border px-4 py-3">
-        <h2 className="text-base font-semibold text-gray-100">Chatroom</h2>
+        <h2 className="text-base font-medium text-gray-100">Chatroom</h2>
         <p className="mt-1 text-xs text-gray-500">Open room for registered users</p>
       </div>
 
       {(error || chatroomError) && (
-        <div className="mx-4 mt-3 rounded-lg bg-red-500/10 p-3 text-sm text-red-400">
+        <div className="mx-4 mt-3 border-l border-primary pl-3 text-sm text-red-400">
           {error || chatroomError}
         </div>
       )}
@@ -74,10 +74,10 @@ export default function Chatroom() {
         ) : (
           chatroomMessages.map((message) => (
             <div key={message.id} className={`flex ${message.is_mine ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[82%] rounded-xl px-4 py-3 text-sm ${
+              <div className={`max-w-[82%] px-0 py-3 text-sm ${
                 message.is_mine
-                  ? 'bg-primary text-white'
-                  : 'border border-dark-border bg-dark-bg text-gray-100'
+                  ? 'text-primary'
+                  : 'text-gray-100'
               }`}>
                 {!message.is_mine && (
                   <p className="mb-1 truncate text-xs font-semibold text-primary">{message.sender_username}</p>
@@ -99,7 +99,7 @@ export default function Chatroom() {
 
       <form
         onSubmit={handleSubmit}
-        className="sticky bottom-0 flex shrink-0 gap-2 border-t border-dark-border bg-dark-card/95 px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur"
+        className="sticky bottom-0 flex shrink-0 gap-5 border-t border-dark-border bg-dark-bg/95 px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur"
       >
         <input
           type="text"
@@ -107,7 +107,7 @@ export default function Chatroom() {
           onChange={(event) => setBody(event.target.value)}
           placeholder="Write in the chatroom..."
           maxLength={1000}
-          className="min-w-0 flex-1 rounded-xl border border-dark-border bg-dark-bg px-4 py-3 focus:outline-none focus:border-primary"
+          className="min-w-0 flex-1 border-0 border-b px-0 py-3 text-sm focus:outline-none focus:border-primary"
         />
         <IconButton
           type="submit"

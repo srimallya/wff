@@ -71,25 +71,25 @@ export default function FeedFilters() {
   }, [currentYear, feedYearCounts, feedTimelineEssays, essays])
 
   return (
-    <div className="bg-dark-card p-4 rounded-xl border border-dark-border space-y-1.5">
+    <div className="swiss-panel space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-400">Timeline:</span>
-          <span className="text-primary font-semibold text-lg">{displayLabel}</span>
+          <span className="text-primary font-medium text-base">{displayLabel}</span>
           <span className="text-xs text-gray-500 ml-2">{essaysTotal} posts</span>
           {feedFilter.active && (
             <IconButton
               onClick={clearFeedFilter}
               icon="close"
               label="All years"
-              className="ml-2 !h-8 !w-8"
+              className="ml-2"
             />
           )}
         </div>
         <select
           value={feedFilter.countryCode || ''}
           onChange={(event) => setFeedCountry(event.target.value)}
-          className="w-full sm:w-56 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-sm text-white focus:outline-none focus:border-primary"
+          className="w-full sm:w-56 border-0 border-b px-0 py-2 text-sm focus:outline-none focus:border-primary"
         >
           <option value="">All countries</option>
           {COUNTRIES.map((country) => (
@@ -111,9 +111,9 @@ export default function FeedFilters() {
         </div>
         <div className="px-4">
           <div className="relative h-8">
-            <div className="absolute left-0 right-0 top-1/2 h-2 -translate-y-1/2 rounded-lg bg-dark-border" />
+            <div className="absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-dark-border" />
             <div
-              className="pointer-events-none absolute top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary"
+              className="pointer-events-none absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary"
               style={{ left: `${sliderPercent}%` }}
             />
             <input

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/zustandStore'
 import EssayComposer from '../components/EssayComposer'
 import { IconButton } from '../components/Icons'
+import BottomNav from '../components/BottomNav'
 
 export default function Compose() {
   const navigate = useNavigate()
@@ -44,18 +45,23 @@ export default function Compose() {
   }
 
   return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 bg-dark-bg/95 backdrop-blur border-b border-dark-border p-4 z-10">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <IconButton onClick={() => { resetFeedView(); navigate('/feed') }} icon="forum" label="Forum" />
-          <h1 className="text-sm font-semibold">Write</h1>
-          <IconButton onClick={() => navigate('/profile')} icon="profile" label="Profile" className="icon-button-primary" />
+    <div className="app-shell">
+      <header className="app-header">
+        <div className="app-header-inner">
+          <p className="app-kicker">World Foresight Forum</p>
+          <div className="mt-2 flex items-end justify-between gap-4">
+            <h1 className="app-title">Write</h1>
+            <button type="button" onClick={() => { resetFeedView(); navigate('/feed') }} className="text-sm text-gray-500">
+              Cancel
+            </button>
+          </div>
         </div>
       </header>
-      <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-        {error && <p className="text-red-500 text-sm bg-red-500/10 p-3 rounded-lg">{error}</p>}
+      <main className="max-w-2xl mx-auto px-5 py-6 space-y-7">
+        {error && <p className="border-l border-primary pl-3 text-sm text-red-500">{error}</p>}
         <EssayComposer onSubmit={handleSubmit} isSubmitting={isSubmitting} />
       </main>
+      <BottomNav />
     </div>
   )
 }

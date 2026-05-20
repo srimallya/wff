@@ -5,7 +5,7 @@ import { IconButton } from './Icons'
 
 function EmptyState({ children }) {
   return (
-    <div className="rounded-lg border border-dark-border bg-dark-card/60 px-4 py-5 text-center text-sm text-gray-500">
+    <div className="border-t border-dark-border px-0 py-5 text-center text-sm text-gray-500">
       {children}
     </div>
   )
@@ -14,7 +14,7 @@ function EmptyState({ children }) {
 function RequestNote({ note }) {
   if (!note) return null
   return (
-    <p className="mt-3 whitespace-pre-wrap break-words rounded-lg bg-dark-bg px-3 py-2 text-sm text-gray-300">
+    <p className="mt-3 whitespace-pre-wrap break-words border-l border-dark-border pl-3 text-sm text-gray-300">
       {note}
     </p>
   )
@@ -130,36 +130,30 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
     <div className="space-y-5">
       {showTitle && (
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Messages</h1>
+          <h1 className="app-title">Messages</h1>
           <IconButton onClick={() => navigate('/profile')} icon="profile" label="Back to profile" />
         </div>
       )}
 
       {panel === 'all' && (
-        <div className="mx-auto grid max-w-sm grid-cols-2 gap-1 rounded-lg border border-dark-border bg-dark-card p-1">
-          <IconButton
-            onClick={() => setActivePanel('threads')}
-            icon="chat"
-            label="Conversations"
-            className={visiblePanel === 'threads' ? 'icon-button-primary' : ''}
-          />
-          <IconButton
-            onClick={() => setActivePanel('requests')}
-            icon="profile"
-            label="Requests"
-            className={visiblePanel === 'requests' ? 'icon-button-primary' : ''}
-          />
+        <div className="swiss-tabs">
+          <button type="button" onClick={() => setActivePanel('threads')} className={`swiss-tab ${visiblePanel === 'threads' ? 'swiss-tab-active' : ''}`}>
+            Conversations
+          </button>
+          <button type="button" onClick={() => setActivePanel('requests')} className={`swiss-tab ${visiblePanel === 'requests' ? 'swiss-tab-active' : ''}`}>
+            Requests
+          </button>
         </div>
       )}
 
       {(statusText || messagesError) && (
-        <div className="rounded-lg bg-red-500/10 p-3 text-sm text-red-400">
+        <div className="border-l border-primary pl-3 text-sm text-red-400">
           {statusText || messagesError}
         </div>
       )}
 
       {messagesLoading ? (
-        <div className="text-center py-12 text-gray-500">Loading...</div>
+        <div className="py-12 text-center text-sm text-gray-500">Loading...</div>
       ) : visiblePanel === 'threads' ? (
         <div className="space-y-4">
           <input
@@ -167,7 +161,7 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
             value={threadQuery}
             onChange={(e) => setThreadQuery(e.target.value)}
             placeholder="Search conversations..."
-            className="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 text-base focus:outline-none focus:border-primary"
+            className="w-full border-0 border-b px-0 py-3 text-sm focus:outline-none focus:border-primary"
           />
 
           {filteredThreads.length === 0 ? (
@@ -180,7 +174,7 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
                 <button
                   key={thread.id}
                   onClick={() => navigate(`/messages/${thread.id}`)}
-                  className="w-full rounded-lg border border-dark-border bg-dark-card p-4 text-left hover:border-primary/70"
+                  className="w-full border-t border-dark-border py-4 text-left"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -192,7 +186,7 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
                       </p>
                     </div>
                     {thread.unread_count > 0 && (
-                      <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-white">
+                      <span className="shrink-0 text-xs font-semibold text-primary">
                         {thread.unread_count}
                       </span>
                     )}
@@ -212,11 +206,11 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
                 value={peopleQuery}
                 onChange={(e) => setPeopleQuery(e.target.value)}
                 placeholder="Search people..."
-                className="w-full pl-4 pr-16 py-3 bg-dark-card border border-dark-border rounded-xl focus:outline-none focus:border-primary text-base"
+                className="w-full border-0 border-b py-3 pr-28 text-sm focus:outline-none focus:border-primary"
               />
               <IconButton
                 type="submit"
-                className="icon-button-primary absolute right-2 top-1/2 !h-9 !w-9 -translate-y-1/2"
+                className="icon-button-primary absolute right-0 top-1/2 -translate-y-1/2"
                 disabled={peopleQuery.trim().length < 2}
                 icon="search"
                 label="Search people"
@@ -224,13 +218,13 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
             </form>
 
             {messageSearchResults.length > 0 && (
-              <div className="space-y-2 rounded-xl border border-dark-border bg-dark-card p-3">
+              <div className="space-y-2 border-t border-dark-border pt-3">
                 {messageSearchResults.map((person) => (
                   <button
                     key={person.id}
                     type="button"
                     onClick={() => openRequestModal(person)}
-                    className="flex w-full items-center justify-between gap-3 rounded-lg bg-dark-bg px-3 py-3 text-left hover:bg-dark-border"
+                    className="flex w-full items-center justify-between gap-3 py-3 text-left"
                   >
                     <span className="min-w-0 truncate font-medium text-primary">{person.username}</span>
                     <span className="shrink-0 text-primary" aria-hidden="true">+</span>
@@ -248,7 +242,7 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
                 onClick={closeRequestModal}
                 className="absolute inset-0 bg-black/70"
               />
-              <div className="relative w-full max-w-md rounded-xl border border-dark-border bg-dark-bg p-5 shadow-2xl">
+              <div className="relative w-full max-w-md border border-dark-border bg-dark-bg p-5">
                 <div className="mb-4 flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="text-sm text-gray-500">Send request</p>
@@ -264,7 +258,7 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
                     placeholder="Write a request note..."
                     rows={4}
                     maxLength={128}
-                    className="w-full resize-none rounded-xl border border-dark-border bg-dark-card px-4 py-3 text-sm focus:outline-none focus:border-primary"
+                    className="w-full resize-none border-0 border-b px-0 py-3 text-sm focus:outline-none focus:border-primary"
                   />
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-xs text-gray-500">{requestNote.length}/128</span>
@@ -288,7 +282,7 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
             ) : (
               <div className="space-y-2">
                 {messagesHome.pendingOutgoing.map((request) => (
-                  <div key={request.id} className="rounded-lg border border-dark-border bg-dark-card p-4">
+                  <div key={request.id} className="border-t border-dark-border py-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate font-medium text-primary">{request.other_user.username}</p>
@@ -315,7 +309,7 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
             ) : (
               <div className="space-y-2">
                 {messagesHome.pendingIncoming.map((request) => (
-                  <div key={request.id} className="rounded-lg border border-dark-border bg-dark-card p-4">
+                  <div key={request.id} className="border-t border-dark-border py-4">
                     <div className="flex items-start justify-between gap-3">
                       <p className="min-w-0 truncate font-medium text-primary">{request.other_user.username}</p>
                       <div className="flex shrink-0 gap-2">

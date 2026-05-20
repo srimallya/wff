@@ -5,6 +5,7 @@ import EssayCard from '../components/EssayCard'
 import Chatroom from '../components/Chatroom'
 import MessageHub from '../components/MessageHub'
 import { IconButton } from '../components/Icons'
+import BottomNav from '../components/BottomNav'
 
 export default function Profile() {
   const navigate = useNavigate()
@@ -168,17 +169,16 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 bg-dark-bg/95 backdrop-blur border-b border-dark-border p-4 z-20">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <IconButton onClick={() => { resetFeedView(); navigate('/feed') }} icon="forum" label="Forum" />
-          <h1 className="text-sm font-semibold">Profile</h1>
-          <IconButton
-            onClick={() => setActionsOpen(true)}
-            icon="profile"
-            label="Account"
-            className="icon-button-primary"
-          />
+    <div className="app-shell">
+      <header className="app-header">
+        <div className="app-header-inner">
+          <p className="app-kicker">World Foresight Forum</p>
+          <div className="mt-2 flex items-end justify-between gap-4">
+            <h1 className="app-title">Profile</h1>
+            <button type="button" onClick={() => setActionsOpen(true)} className="swiss-action text-sm">
+              Account
+            </button>
+          </div>
         </div>
       </header>
 
@@ -190,19 +190,19 @@ export default function Profile() {
             onClick={closeActions}
             className="absolute inset-0 bg-black/50"
           />
-          <aside className="absolute right-0 top-0 h-full w-[min(22rem,calc(100vw-2rem))] bg-dark-bg border-l border-dark-border shadow-2xl">
+          <aside className="absolute right-0 top-0 h-full w-[min(22rem,calc(100vw-2rem))] border-l border-dark-border bg-dark-bg">
             <div className="flex h-full flex-col">
-              <div className="flex items-center justify-between border-b border-dark-border p-4">
-                <h2 className="text-base font-semibold">Account</h2>
+              <div className="flex items-center justify-between border-b border-dark-border px-5 py-4">
+                <h2 className="app-title">Account</h2>
                 <IconButton onClick={closeActions} icon="close" label="Close" />
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                <div className="bg-dark-card p-5 rounded-xl border border-dark-border space-y-4">
+              <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                <div className="swiss-panel space-y-4">
                   <div className="space-y-1">
                     <p className="text-sm text-gray-400">Public name</p>
                     <div className="flex items-center gap-2">
-                      <p className="min-w-0 break-words text-2xl font-bold text-primary">{user.username}</p>
+                      <p className="min-w-0 break-words text-2xl font-semibold text-primary">{user.username}</p>
                       <IconButton
                         type="button"
                         onClick={copyPublicName}
@@ -242,7 +242,7 @@ export default function Profile() {
                 </div>
 
                 {canUsePrivateFeatures && (
-                  <div className="rounded-xl border border-dark-border bg-dark-card p-4">
+                  <div className="swiss-panel">
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <p className="text-sm font-medium text-gray-200">PWA notifications</p>
@@ -256,9 +256,7 @@ export default function Profile() {
                       <button
                         type="button"
                         onClick={toggleNotifications}
-                        className={`relative h-7 w-12 rounded-full transition-colors ${
-                          notificationsOn ? 'bg-primary' : 'bg-dark-border'
-                        }`}
+                        className={`relative h-6 w-10 rounded-full transition-colors ${notificationsOn ? 'bg-primary' : 'bg-dark-border'}`}
                         aria-pressed={notificationsOn}
                         aria-label="PWA notifications"
                       >
@@ -289,7 +287,7 @@ export default function Profile() {
                     />
 
                     {showDelete && (
-                      <div className="bg-dark-card p-4 rounded-xl border border-red-500/30 space-y-3">
+                      <div className="swiss-panel space-y-3">
                         <p className="text-sm text-red-400">Confirm with your password</p>
                         {deleteError && <p className="text-red-500 text-sm">{deleteError}</p>}
                         <input
@@ -319,7 +317,7 @@ export default function Profile() {
                     />
 
                     {showDelete && (
-                      <div className="bg-dark-card p-4 rounded-xl border border-red-500/30 space-y-3">
+                      <div className="swiss-panel space-y-3">
                         <p className="text-sm text-gray-400">Delete this guest account?</p>
                         {deleteError && <p className="text-red-500 text-sm">{deleteError}</p>}
                         <IconButton
@@ -335,8 +333,8 @@ export default function Profile() {
                 )}
               </div>
 
-              <div className="border-t border-dark-border p-4">
-                <div className="rounded-xl border border-dark-border bg-dark-card p-4">
+              <div className="border-t border-dark-border p-5">
+                <div className="swiss-panel">
                   <p className="text-sm font-semibold text-gray-100">Support</p>
                   <p className="mt-1 text-sm text-gray-400">
                     Help keep this platform running and improving.
@@ -355,28 +353,19 @@ export default function Profile() {
         </div>
       )}
 
-      <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+      <main className="max-w-2xl mx-auto px-5 py-6 space-y-7">
         {canUsePrivateFeatures ? (
           <>
-            <div className="grid grid-cols-3 gap-2 rounded-xl border border-dark-border bg-dark-card p-1">
-              <IconButton
-                onClick={() => setActiveView('messages')}
-                icon="chat"
-                label="Messages"
-                className={activeView === 'messages' ? 'icon-button-primary mx-auto' : 'mx-auto'}
-              />
-              <IconButton
-                onClick={() => setActiveView('chatroom')}
-                icon="forum"
-                label="Chatroom"
-                className={activeView === 'chatroom' ? 'icon-button-primary mx-auto' : 'mx-auto'}
-              />
-              <IconButton
-                onClick={() => setActiveView('essays')}
-                icon="edit"
-                label="My posts"
-                className={activeView === 'essays' ? 'icon-button-primary mx-auto' : 'mx-auto'}
-              />
+            <div className="swiss-tabs">
+              <button type="button" onClick={() => setActiveView('messages')} className={`swiss-tab ${activeView === 'messages' ? 'swiss-tab-active' : ''}`}>
+                Messages
+              </button>
+              <button type="button" onClick={() => setActiveView('chatroom')} className={`swiss-tab ${activeView === 'chatroom' ? 'swiss-tab-active' : ''}`}>
+                Chatroom
+              </button>
+              <button type="button" onClick={() => setActiveView('essays')} className={`swiss-tab ${activeView === 'essays' ? 'swiss-tab-active' : ''}`}>
+                My posts
+              </button>
             </div>
 
             {activeView === 'messages' ? (
@@ -388,7 +377,7 @@ export default function Profile() {
                 {essaysLoading ? (
                   <div className="text-center py-8 text-gray-500">Loading...</div>
                 ) : myEssays.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="py-12 text-center text-sm text-gray-500">
                     <p>You have not written anything yet</p>
                     <IconButton onClick={() => navigate('/compose')} icon="edit" label="Write the first post" className="icon-button-primary mt-4" />
                   </div>
@@ -403,7 +392,7 @@ export default function Profile() {
             )}
           </>
         ) : (
-          <div className="rounded-xl border border-dark-border bg-dark-card p-5 space-y-3">
+          <div className="swiss-panel space-y-3">
             <p className="text-sm font-semibold text-gray-200">Account</p>
             <p className="text-sm text-gray-400">
               Guest accounts cannot use messages, requests, notifications, or personal post management.
@@ -419,6 +408,7 @@ export default function Profile() {
         )}
 
       </main>
+      <BottomNav />
     </div>
   )
 }
