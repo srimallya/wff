@@ -158,4 +158,4 @@ Database will be recreated on next startup.
 - Vite dev server on port 5173 proxies `/api` requests to backend on 7080
 - Vite also proxies `/socket.io` to backend on 7080 for live chat during local development
 - No need to build frontend when using dev server
-- TailwindCSS for styling with dark theme (#0a0a0a background, #DC2626 primary)
+- TailwindCSS for styling with the WFF Swiss system: Avenir Next, warm white background, grey/black hierarchy, and Swiss red primary actions.

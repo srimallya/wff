@@ -18,6 +18,12 @@ select {
   font: inherit;
 }
 
+input[type="range"] {
+  border: 0 !important;
+  background-color: transparent !important;
+  padding: 0 !important;
+}
+
 .rounded-md,
 .rounded-lg,
 .rounded-xl,
@@ -165,7 +171,9 @@ select {
   display: grid;
   max-width: 42rem;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  padding: 0.7rem 1.25rem calc(env(safe-area-inset-bottom) + 0.7rem);
+  min-height: calc(4.25rem + env(safe-area-inset-bottom));
+  padding: 0.85rem 1.25rem calc(env(safe-area-inset-bottom) + 1.15rem);
+  align-items: center;
 }
 
 .bottom-tab {
@@ -182,6 +190,7 @@ select {
 .swiss-tabs {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 1.4rem;
   overflow-x: auto;
   border-bottom: 1px solid #d9d9d2;

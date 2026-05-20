@@ -1,206 +1,169 @@
-# Goal: v1.3.0 ASTR Hardening Toward Signal-Grade Key Evolution
+# Goal: World Foresight Forum v1.1 Recommendation System
 
-## Thesis
+## Product Thesis
 
-v1.2.0 moved Kaal Probaho private messaging from a server-side ASTR scaffold to client-created encrypted ASTR packets. That is meaningful progress, but it is not Signal-equivalent and must not be presented as stronger than Signal.
+World Foresight Forum v1.1 should become more than a chronological archive of future-facing posts. It should help readers discover the most relevant imagined futures by year, country, topic, and civic consequence without turning the product into an engagement-maximizing social feed.
 
-v1.3.0 should harden the protocol by closing the known gaps:
+The recommendation system must serve the forum's public-interest purpose:
 
-**ASTR state-transition semantics + audited Signal-style key evolution + explicit identity/session safety.**
+- surface useful foresight across countries and time horizons;
+- prevent early posts or popular users from permanently dominating attention;
+- preserve a calm, Swiss-style reading interface;
+- make discovery legible rather than mysterious;
+- avoid addictive ranking loops.
 
-ASTR should continue to define what a valid conversation mutation is. Signal-style ratchets should define how keys evolve, recover, and expire.
+## v1.1 Recommendation Scope
 
-## Current v1.2.0 State
+The first recommendation release should focus on explainable ranking and filters, not opaque personalization.
 
-v1.2.0 has:
+### Inputs
 
-- client-side ASTR packet creation;
-- client-side private message decryption;
-- server-side storage of ciphertext/auth metadata for new private messages;
-- empty plaintext body storage for new ASTR v2 private messages;
-- transcript hash and directional counter validation on the server;
-- request acceptance as the product moment when a private channel begins;
-- a registered-user chatroom that is intentionally separate from private ASTR messaging.
+Use signals already present in the app:
 
-This is not enough for Signal-grade security.
+- target calendar year;
+- country and `Global` scope;
+- post text;
+- policy proposal category extraction;
+- semantic search embedding;
+- score from post votes;
+- comment count;
+- recency;
+- whether the reader is browsing a specific year, country, or search query.
 
-## Remaining Security Gaps
+### Ranking Modes
 
-v1.3.0 should mitigate these gaps before any stronger security claims are made:
+Add three clear modes:
 
-- no audited X3DH-style initial key agreement;
-- no durable user identity key verification;
-- no signed prekey / one-time prekey model;
-- no true Double Ratchet DH step;
-- no robust root-chain and chain-key evolution;
-- no post-compromise recovery when fresh ratchet material arrives;
-- no bounded skipped-message-key handling for out-of-order delivery;
-- no clear replay/reorder/fork test-vector suite;
-- no multi-device model;
-- no encrypted backup or account recovery model;
-- weak local browser-state persistence guarantees;
-- no external cryptographic review;
-- chatroom is not private end-to-end group messaging.
+- `Recent`: newest posts first.
+- `Important`: high-quality posts with strong vote/comment signals.
+- `Relevant`: semantic similarity to the current search, selected country, year, or topic context.
 
-## v1.3.0 Protocol Target
+The default should remain calm and understandable. `Recent` is the safest first default until the ranking quality is proven.
 
-Each private conversation should have a versioned client-side session with:
+### Explainability
+
+Each recommended post should be able to expose a short reason internally, such as:
+
+- "Matches your selected country."
+- "Close to the selected year."
+- "Similar to your search."
+- "Active discussion."
+- "Policy proposal in health."
+
+The UI does not need to show all of these by default, but the backend should return enough metadata to debug ranking decisions.
+
+## Backend Plan
+
+Add a recommendation endpoint:
 
 ```text
-ASTRSession {
-  version,
-  local_identity_key,
-  remote_identity_key,
-  root_key,
-  sending_chain_key,
-  receiving_chain_key,
-  local_ratchet_key_pair,
-  remote_ratchet_public_key,
-  send_counter,
-  receive_counter,
-  previous_sending_chain_length,
-  skipped_message_keys,
-  transcript_hash,
-  channel_epoch
+GET /api/essays/recommendations
+```
+
+Parameters:
+
+```text
+country_code
+year
+query
+mode = recent | important | relevant
+limit
+offset
+current_user_id
+```
+
+Response shape:
+
+```json
+{
+  "essays": [],
+  "mode": "relevant",
+  "reasons": {
+    "123": ["country_match", "semantic_match"]
+  }
 }
 ```
 
-Each packet should carry:
+Implementation should reuse the existing essay serialization and semantic embedding helpers. Avoid adding a separate data store until there is real scale pressure.
+
+## Scoring Sketch
+
+For `important`:
 
 ```text
-ASTRPacket {
-  version,
-  channel_hint,
-  epoch,
-  direction,
-  counter,
-  previous_chain_length,
-  ratchet_public_key,
-  prev_transcript_hash,
-  ciphertext,
-  auth_tag
-}
+score = vote_score
+      + log(1 + comment_count)
+      + policy_proposal_bonus
+      + freshness_floor
 ```
 
-AEAD associated data must include:
+For `relevant`:
 
 ```text
-associated_data = {
-  version,
-  channel_hint,
-  epoch,
-  direction,
-  counter,
-  previous_chain_length,
-  ratchet_public_key,
-  prev_transcript_hash
-}
+score = semantic_similarity
+      + country_match_bonus
+      + year_distance_bonus
+      + vote_quality_bonus
+      + discussion_bonus
 ```
 
-The transcript commitment should remain:
+Keep weights simple and inspectable. Store constants in one backend module so they can be tuned without hunting through route code.
 
-```text
-T_n = Hash(T_{n-1} || direction || counter || ratchet_public_key || ciphertext || auth_tag)
-```
+## Frontend Plan
 
-## Key Agreement
+The UI should stay minimal:
 
-v1.3.0 should introduce a real initial session setup:
+- add a small centered mode switch on the forum page;
+- keep country and timeline controls visually quiet;
+- show recommended posts in the same post card layout;
+- avoid cards inside cards or heavy badges;
+- keep the primary action `Write` in Swiss red.
 
-- long-term identity key pair per registered user;
-- signed prekey per user;
-- one-time prekeys where practical;
-- sender validates a signed prekey before opening a session;
-- request acceptance creates or confirms the first cryptographic epoch;
-- server stores public key bundles only, never private key material;
-- clients reject sessions if identity keys unexpectedly change without user-visible safety handling.
+Recommended labels:
 
-If implementing full X3DH is too large for one release, v1.3.0 should at minimum isolate the key-agreement layer behind a clean interface and document which parts are still provisional.
+- Recent
+- Important
+- Relevant
 
-## Double Ratchet Requirements
+No icons.
 
-v1.3.0 should implement or integrate:
+## Guardrails
 
-- root-key updates from DH outputs;
-- send-chain and receive-chain key derivation;
-- unique message key per message;
-- immediate deletion of used message keys;
-- bounded skipped-message-key storage;
-- replay rejection;
-- out-of-order delivery within a bounded window;
-- clear failure behavior for excessive gaps;
-- post-compromise recovery after receiving fresh ratchet material.
+The recommendation system must not:
 
-Do not invent new primitives when a well-reviewed library or standard construction is available.
+- rank purely by engagement;
+- hide the chronological feed;
+- require private user profiling;
+- create infinite-scroll addiction mechanics;
+- make unexplained political or country-based boosts;
+- use opaque ranking that cannot be inspected.
 
-## Identity And Safety UX
+## Tests
 
-The normal messaging UI should stay simple, but v1.3.0 needs a safety layer:
+Add backend tests for:
 
-- stable safety number or fingerprint per private conversation;
-- visible warning when a remote identity key changes;
-- a way to reset a broken or suspicious session;
-- debug-only protocol inspection that does not expose jargon in ordinary messaging.
+- country match ranking;
+- year-distance ranking;
+- semantic query ranking;
+- vote/comment ranking;
+- pagination;
+- empty database behavior;
+- malformed parameter handling.
 
-## Local State Protection
+Add frontend checks for:
 
-Browser/client state should be treated as sensitive:
-
-- private keys and session state should not live casually in plain localStorage;
-- prefer IndexedDB plus WebCrypto non-extractable keys where practical;
-- document what is protected from the server and what is still exposed to a compromised device/browser;
-- avoid logging plaintext, private keys, message keys, or packet secrets.
-
-## Chatroom Boundary
-
-The registered-user chatroom is not private one-to-one ASTR.
-
-For v1.3.0:
-
-- keep chatroom clearly separate from private ASTR conversations;
-- do not describe chatroom messages as end-to-end encrypted unless a group protocol is actually implemented;
-- if group privacy is explored, model it as a separate group-state-transition protocol with membership epochs.
-
-## Testing Requirements
-
-v1.3.0 should add protocol-focused tests for:
-
-- initial session creation;
-- Alice sends / Bob receives;
-- Bob sends / Alice receives;
-- simultaneous sends;
-- out-of-order delivery;
-- skipped message keys;
-- replayed packet rejection;
-- wrong transcript hash rejection;
-- wrong direction rejection;
-- wrong counter rejection;
-- identity key change handling;
-- channel reset / new epoch behavior;
-- server database not containing plaintext for new private messages.
-
-Test vectors should use deterministic keys and packet fixtures where possible.
-
-## Non-Goals For v1.3.0
-
-- Do not claim Signal-equivalent security without external review.
-- Do not claim ASTR is more secure than Signal.
-- Do not hide identity-key changes from users.
-- Do not implement group chat privacy by pretending one-to-one ratchets solve group membership.
-- Do not add multi-device sync until one-device session correctness is stable.
+- mode switch rendering;
+- empty states;
+- selected country plus recommendation mode;
+- mobile layout with the bottom tab bar.
 
 ## Definition Of Done
 
-v1.3.0 is done when:
+v1.1 recommendation work is done when:
 
-- request acceptance can create a real client-held cryptographic session;
-- server never receives private key material;
-- server stores only opaque private message packets for new v1.3 messages;
-- message keys are unique and deleted after use;
-- out-of-order private messages work within a bounded skip window;
-- replay, reorder, wrong-counter, and wrong-transcript packets are rejected or quarantined;
-- receiving a new ratchet public key advances root and chain keys;
-- compromise recovery behavior is documented and test-covered;
-- identity-key changes produce explicit safety handling;
-- protocol test vectors exist and run in CI/local checks;
-- README and changelog clearly state that v1.3 is hardening toward Signal-grade design, not a claim of superiority.
+- `/api/essays/recommendations` returns ranked posts with reason metadata;
+- the forum page can switch between Recent, Important, and Relevant;
+- country/year/search context influences `Relevant`;
+- ranking is covered by focused tests;
+- README and changelog document the recommendation model clearly;
+- production `/wff` serves the new build without breaking signup, login, posting, comments, or messages.

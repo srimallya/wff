@@ -12,6 +12,31 @@ const SECURITY_QUESTIONS = [
   'What was the name of your favorite teacher?',
 ]
 
+function formatBirthdateInput(value) {
+  const digits = value.replace(/\D/g, '').slice(0, 8)
+  if (digits.length <= 2) return digits
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
+}
+
+function parseBirthdateInput(value) {
+  const digits = value.replace(/\D/g, '')
+  if (digits.length !== 8) return ''
+  const day = digits.slice(0, 2)
+  const month = digits.slice(2, 4)
+  const year = digits.slice(4)
+  const date = new Date(`${year}-${month}-${day}T00:00:00Z`)
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getUTCFullYear() !== Number(year) ||
+    date.getUTCMonth() + 1 !== Number(month) ||
+    date.getUTCDate() !== Number(day)
+  ) {
+    return ''
+  }
+  return `${year}-${month}-${day}`
+}
+
 export default function Signup() {
   const navigate = useNavigate()
   const { register, setUser } = useStore()
@@ -28,6 +53,7 @@ export default function Signup() {
     security_q2: SECURITY_QUESTIONS[1],
     security_a2: '',
   })
+  const [birthdateInput, setBirthdateInput] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -52,7 +78,9 @@ export default function Signup() {
       if (form.password !== form.confirmPassword) return setError('Passwords do not match')
       setStep(3)
     } else if (step === 3) {
-      if (!form.birthdate) return setError('Enter your birthdate')
+      const parsedBirthdate = parseBirthdateInput(birthdateInput)
+      if (!parsedBirthdate) return setError('Enter your birthdate as DD/MM/YYYY')
+      update('birthdate', parsedBirthdate)
       setStep(4)
     } else if (step === 4) {
       if (!form.security_a1.trim() || !form.security_a2.trim()) return setError('Answer both security questions')
@@ -161,7 +189,18 @@ export default function Signup() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Birthdate</label>
-                <input type="date" value={form.birthdate} onChange={(event) => update('birthdate', event.target.value)} className="w-full min-w-0 appearance-none border-0 border-b px-0 py-3 text-sm focus:outline-none focus:border-primary" />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={birthdateInput}
+                  onChange={(event) => {
+                    const formatted = formatBirthdateInput(event.target.value)
+                    setBirthdateInput(formatted)
+                    update('birthdate', parseBirthdateInput(formatted))
+                  }}
+                  className="w-full min-w-0 appearance-none border-0 border-b px-0 py-3 text-sm focus:outline-none focus:border-primary"
+                  placeholder="DD/MM/YYYY"
+                />
                 <p className="text-xs text-gray-500 mt-1">Private. Used only to calculate your age in a future scenario.</p>
               </div>
             </div>

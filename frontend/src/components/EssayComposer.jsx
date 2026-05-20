@@ -6,6 +6,7 @@ import { IconButton } from './Icons'
 export default function EssayComposer({ onSubmit, isSubmitting }) {
   const [lookAheadMonths, setLookAheadMonths] = useState(360)
   const [countryCode, setCountryCode] = useState('GLOBAL')
+  const [countryInput, setCountryInput] = useState('Global')
   const [content, setContent] = useState('')
 
   const len = content.trim().length
@@ -13,34 +14,54 @@ export default function EssayComposer({ onSubmit, isSubmitting }) {
 
   const handleSubmit = () => {
     if (!isValid) return
+    const country = COUNTRIES.find((item) => item.code === countryCode) || COUNTRIES[0]
     onSubmit({
       look_ahead_months: lookAheadMonths,
-      country_code: countryCode,
-      country: COUNTRIES.find((country) => country.code === countryCode)?.name || 'Global',
+      country_code: country.code,
+      country: country.name,
       content: content.trim(),
     })
   }
 
+  const handleCountryChange = (value) => {
+    setCountryInput(value)
+    const normalized = value.trim().toLowerCase()
+    const exact = COUNTRIES.find((country) => country.name.toLowerCase() === normalized)
+    if (exact) {
+      setCountryCode(exact.code)
+      return
+    }
+    const partial = COUNTRIES.find((country) => country.name.toLowerCase().startsWith(normalized))
+    if (partial) setCountryCode(partial.code)
+  }
+
   return (
     <div className="space-y-6">
+      <div className="swiss-panel space-y-2">
+        <label className="block text-sm text-gray-400" htmlFor="country">Country</label>
+        <input
+          id="country"
+          list="country-options"
+          value={countryInput}
+          onChange={(event) => handleCountryChange(event.target.value)}
+          onBlur={() => {
+            const country = COUNTRIES.find((item) => item.code === countryCode) || COUNTRIES[0]
+            setCountryInput(country.name)
+          }}
+          className="w-full border-0 border-b px-0 py-3 text-sm focus:outline-none focus:border-primary"
+          placeholder="Type a country"
+        />
+        <datalist id="country-options">
+          {COUNTRIES.map((country) => (
+            <option key={country.code} value={country.name} />
+          ))}
+        </datalist>
+        <p className="text-xs text-gray-500">Choose Global when the post is not tied to one country.</p>
+      </div>
+
       <div className="swiss-panel">
         <h3 className="mb-6 text-base font-medium">Which future are you writing for?</h3>
         <TimeSlider value={lookAheadMonths} onChange={setLookAheadMonths} />
-      </div>
-
-      <div className="swiss-panel space-y-2">
-        <label className="block text-sm text-gray-400" htmlFor="country">Country</label>
-        <select
-          id="country"
-          value={countryCode}
-          onChange={(event) => setCountryCode(event.target.value)}
-          className="w-full border-0 border-b px-0 py-3 text-sm focus:outline-none focus:border-primary"
-        >
-          {COUNTRIES.map((country) => (
-            <option key={country.code} value={country.code}>{country.name}</option>
-          ))}
-        </select>
-        <p className="text-xs text-gray-500">Choose Global when the post is not tied to one country.</p>
       </div>
 
       <div className="swiss-panel space-y-4">
