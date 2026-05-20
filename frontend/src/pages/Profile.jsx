@@ -4,6 +4,7 @@ import { useStore } from '../store/zustandStore'
 import EssayCard from '../components/EssayCard'
 import Chatroom from '../components/Chatroom'
 import MessageHub from '../components/MessageHub'
+import { IconButton } from '../components/Icons'
 
 export default function Profile() {
   const navigate = useNavigate()
@@ -170,14 +171,14 @@ export default function Profile() {
     <div className="min-h-screen">
       <header className="sticky top-0 bg-dark-bg/95 backdrop-blur border-b border-dark-border p-4 z-20">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <button onClick={() => { resetFeedView(); navigate('/feed') }} className="text-gray-400 hover:text-white text-sm">Forum</button>
+          <IconButton onClick={() => { resetFeedView(); navigate('/feed') }} icon="forum" label="Forum" />
           <h1 className="text-sm font-semibold">Profile</h1>
-          <button
+          <IconButton
             onClick={() => setActionsOpen(true)}
-            className="text-primary hover:text-red-400 text-sm"
-          >
-            Account
-          </button>
+            icon="profile"
+            label="Account"
+            className="icon-button-primary"
+          />
         </div>
       </header>
 
@@ -193,9 +194,7 @@ export default function Profile() {
             <div className="flex h-full flex-col">
               <div className="flex items-center justify-between border-b border-dark-border p-4">
                 <h2 className="text-base font-semibold">Account</h2>
-                <button onClick={closeActions} className="text-sm text-gray-400 hover:text-white">
-                  Close
-                </button>
+                <IconButton onClick={closeActions} icon="close" label="Close" />
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -204,14 +203,13 @@ export default function Profile() {
                     <p className="text-sm text-gray-400">Public name</p>
                     <div className="flex items-center gap-2">
                       <p className="min-w-0 break-words text-2xl font-bold text-primary">{user.username}</p>
-                      <button
+                      <IconButton
                         type="button"
                         onClick={copyPublicName}
-                        aria-label="Copy public name"
-                        className="shrink-0 rounded-lg border border-dark-border px-2 py-1 text-sm text-gray-400 hover:border-primary hover:text-white"
-                      >
-                        {copiedUsername ? 'Copied' : '⧉'}
-                      </button>
+                        icon={copiedUsername ? 'check' : 'spark'}
+                        label="Copy public name"
+                        className="!h-9 !w-9"
+                      />
                     </div>
                     <p className="text-xs text-gray-500">Visible to everyone</p>
                   </div>
@@ -274,21 +272,21 @@ export default function Profile() {
                   </div>
                 )}
 
-                <button
+                <IconButton
                   onClick={handleLogout}
-                  className="w-full px-6 py-3 bg-dark-card hover:bg-dark-border border border-dark-border text-gray-300 rounded-lg transition-colors"
-                >
-                  Log out
-                </button>
+                  icon="back"
+                  label="Log out"
+                  className="mx-auto"
+                />
 
                 {!user.isGuest ? (
                   <div className="space-y-3">
-                    <button
+                    <IconButton
                       onClick={() => setShowDelete(!showDelete)}
-                      className="w-full px-6 py-3 text-red-500 hover:text-red-400 border border-red-500/30 hover:border-red-500 rounded-lg transition-colors text-sm"
-                    >
-                      {showDelete ? 'Cancel' : 'Delete account'}
-                    </button>
+                      icon={showDelete ? 'close' : 'delete'}
+                      label={showDelete ? 'Cancel' : 'Delete account'}
+                      className="mx-auto"
+                    />
 
                     {showDelete && (
                       <div className="bg-dark-card p-4 rounded-xl border border-red-500/30 space-y-3">
@@ -301,36 +299,36 @@ export default function Profile() {
                           placeholder="Password"
                           className="w-full px-4 py-3 bg-dark-bg border border-dark-border rounded-lg focus:outline-none focus:border-red-500 text-white"
                         />
-                        <button
+                        <IconButton
                           onClick={handleDelete}
                           disabled={deleting}
-                          className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold disabled:opacity-50"
-                        >
-                          {deleting ? 'Deleting...' : 'Delete permanently'}
-                        </button>
+                          icon="delete"
+                          label={deleting ? 'Deleting' : 'Delete permanently'}
+                          className="icon-button-primary mx-auto"
+                        />
                       </div>
                     )}
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <button
+                    <IconButton
                       onClick={() => setShowDelete(!showDelete)}
-                      className="w-full px-6 py-3 text-red-500 hover:text-red-400 border border-red-500/30 hover:border-red-500 rounded-lg transition-colors text-sm"
-                    >
-                      {showDelete ? 'Cancel' : 'Delete guest account'}
-                    </button>
+                      icon={showDelete ? 'close' : 'delete'}
+                      label={showDelete ? 'Cancel' : 'Delete guest account'}
+                      className="mx-auto"
+                    />
 
                     {showDelete && (
                       <div className="bg-dark-card p-4 rounded-xl border border-red-500/30 space-y-3">
                         <p className="text-sm text-gray-400">Delete this guest account?</p>
                         {deleteError && <p className="text-red-500 text-sm">{deleteError}</p>}
-                        <button
+                        <IconButton
                           onClick={handleGuestDelete}
                           disabled={deleting}
-                          className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold disabled:opacity-50"
-                        >
-                          {deleting ? 'Deleting...' : 'Delete permanently'}
-                        </button>
+                          icon="delete"
+                          label={deleting ? 'Deleting' : 'Delete permanently'}
+                          className="icon-button-primary mx-auto"
+                        />
                       </div>
                     )}
                   </div>
@@ -343,13 +341,13 @@ export default function Profile() {
                   <p className="mt-1 text-sm text-gray-400">
                     Help keep this platform running and improving.
                   </p>
-                  <button
+                  <IconButton
                     type="button"
                     onClick={openSupport}
-                    className="mt-4 w-full rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-red-700"
-                  >
-                    Support
-                  </button>
+                    icon="support"
+                    label="Support"
+                    className="icon-button-primary mt-4"
+                  />
                 </div>
               </div>
             </div>
@@ -361,36 +359,24 @@ export default function Profile() {
         {canUsePrivateFeatures ? (
           <>
             <div className="grid grid-cols-3 gap-2 rounded-xl border border-dark-border bg-dark-card p-1">
-              <button
+              <IconButton
                 onClick={() => setActiveView('messages')}
-                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  activeView === 'messages'
-                    ? 'bg-primary text-white'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                Messages
-              </button>
-              <button
+                icon="chat"
+                label="Messages"
+                className={activeView === 'messages' ? 'icon-button-primary mx-auto' : 'mx-auto'}
+              />
+              <IconButton
                 onClick={() => setActiveView('chatroom')}
-                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  activeView === 'chatroom'
-                    ? 'bg-primary text-white'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                Chatroom
-              </button>
-              <button
+                icon="forum"
+                label="Chatroom"
+                className={activeView === 'chatroom' ? 'icon-button-primary mx-auto' : 'mx-auto'}
+              />
+              <IconButton
                 onClick={() => setActiveView('essays')}
-                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  activeView === 'essays'
-                    ? 'bg-primary text-white'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                My posts
-              </button>
+                icon="edit"
+                label="My posts"
+                className={activeView === 'essays' ? 'icon-button-primary mx-auto' : 'mx-auto'}
+              />
             </div>
 
             {activeView === 'messages' ? (
@@ -404,9 +390,7 @@ export default function Profile() {
                 ) : myEssays.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <p>You have not written anything yet</p>
-                    <button onClick={() => navigate('/compose')} className="mt-4 text-primary hover:underline">
-                      Write the first post
-                    </button>
+                    <IconButton onClick={() => navigate('/compose')} icon="edit" label="Write the first post" className="icon-button-primary mt-4" />
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -424,13 +408,13 @@ export default function Profile() {
             <p className="text-sm text-gray-400">
               Guest accounts cannot use messages, requests, notifications, or personal post management.
             </p>
-            <button
+            <IconButton
               type="button"
               onClick={() => setActionsOpen(true)}
-              className="w-full rounded-lg border border-dark-border px-4 py-3 text-sm text-gray-300 hover:border-primary hover:text-white"
-            >
-              View account
-            </button>
+              icon="profile"
+              label="View account"
+              className="icon-button-primary mx-auto"
+            />
           </div>
         )}
 

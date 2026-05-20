@@ -42,7 +42,7 @@ function App() {
 
   return (
     <BrowserRouter basename={routerBasename}>
-      <div className="min-h-screen bg-dark-bg text-white">
+      <div className="min-h-screen bg-dark-bg text-swiss-black">
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />

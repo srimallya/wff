@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_BASE } from '../api'
+import { IconButton } from '../components/Icons'
 
 export default function ForgotPassword() {
   const navigate = useNavigate()
@@ -108,13 +109,13 @@ export default function ForgotPassword() {
                 className="w-full px-4 py-3 bg-dark-bg border border-dark-border rounded-lg focus:outline-none focus:border-primary text-white"
                 placeholder="Username"
               />
-              <button
+              <IconButton
                 onClick={handleStep1}
                 disabled={loading}
-                className="w-full px-4 py-3 bg-primary hover:bg-red-700 text-white rounded-lg font-semibold disabled:opacity-50"
-              >
-                {loading ? 'Please wait...' : 'Next'}
-              </button>
+                icon="enter"
+                label={loading ? 'Please wait' : 'Next'}
+                className="icon-button-primary mx-auto"
+              />
             </div>
           )}
 
@@ -139,13 +140,13 @@ export default function ForgotPassword() {
                   className="w-full px-4 py-3 bg-dark-bg border border-dark-border rounded-lg focus:outline-none focus:border-primary text-white"
                 />
               </div>
-              <button
+              <IconButton
                 onClick={handleStep2}
                 disabled={loading}
-                className="w-full px-4 py-3 bg-primary hover:bg-red-700 text-white rounded-lg font-semibold disabled:opacity-50"
-              >
-                {loading ? 'Verifying...' : 'Verify'}
-              </button>
+                icon="check"
+                label={loading ? 'Verifying' : 'Verify'}
+                className="icon-button-primary mx-auto"
+              />
             </div>
           )}
 
@@ -159,20 +160,18 @@ export default function ForgotPassword() {
                 className="w-full px-4 py-3 bg-dark-bg border border-dark-border rounded-lg focus:outline-none focus:border-primary text-white"
                 placeholder="New password"
               />
-              <button
+              <IconButton
                 onClick={handleStep3}
                 disabled={loading}
-                className="w-full px-4 py-3 bg-primary hover:bg-red-700 text-white rounded-lg font-semibold disabled:opacity-50"
-              >
-                {loading ? 'Saving...' : 'Set password'}
-              </button>
+                icon="check"
+                label={loading ? 'Saving' : 'Set password'}
+                className="icon-button-primary mx-auto"
+              />
             </div>
           )}
         </div>
 
-        <button onClick={() => navigate('/login')} className="w-full text-center text-gray-500 hover:text-gray-300 text-sm">
-          Back to login
-        </button>
+        <IconButton onClick={() => navigate('/login')} icon="back" label="Back to login" className="mx-auto" />
       </div>
     </div>
   )

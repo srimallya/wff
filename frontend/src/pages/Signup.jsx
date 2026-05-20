@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/zustandStore'
 import { API_BASE } from '../api'
+import { IconButton } from '../components/Icons'
 
 const SECURITY_QUESTIONS = [
   'What was the name of your first school?',
@@ -127,9 +128,7 @@ export default function Signup() {
                 <p className="text-xs text-gray-500 mt-1">Shown publicly without your real login name.</p>
               </div>
               <p className="text-sm text-gray-400">Guest mode can read the forum, but cannot post or message.</p>
-              <button onClick={handleGuest} disabled={loading} className="w-full px-4 py-3 bg-primary hover:bg-red-700 text-white rounded-lg font-semibold transition-all disabled:opacity-50">
-                {loading ? 'Please wait...' : 'Continue as guest'}
-              </button>
+              <IconButton onClick={handleGuest} disabled={loading} icon="globe" label={loading ? 'Please wait' : 'Continue as guest'} className="icon-button-primary mx-auto" />
             </div>
           )}
 
@@ -183,20 +182,14 @@ export default function Signup() {
           {form.is_bengali !== false && step !== 'guest' && (
             <div className="flex gap-3">
               {step > 1 && (
-                <button onClick={() => setStep(step - 1)} className="flex-1 px-4 py-3 bg-dark-bg border border-dark-border rounded-lg text-gray-400 hover:text-white">
-                  Back
-                </button>
+                <IconButton onClick={() => setStep(step - 1)} icon="back" label="Back" />
               )}
-              <button onClick={validateStep} disabled={loading} className="flex-1 px-4 py-3 bg-primary hover:bg-red-700 text-white rounded-lg font-semibold transition-all disabled:opacity-50">
-                {loading ? 'Please wait...' : step === 4 ? 'Create account' : 'Continue'}
-              </button>
+              <IconButton onClick={validateStep} disabled={loading} icon={step === 4 ? 'check' : 'enter'} label={loading ? 'Please wait' : step === 4 ? 'Create account' : 'Continue'} className="icon-button-primary" />
             </div>
           )}
         </div>
 
-        <button onClick={() => navigate('/')} className="w-full text-center text-gray-500 hover:text-gray-300 text-sm">
-          Go back
-        </button>
+        <IconButton onClick={() => navigate('/')} icon="back" label="Go back" className="mx-auto" />
       </div>
     </div>
   )

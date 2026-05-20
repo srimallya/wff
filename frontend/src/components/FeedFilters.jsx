@@ -1,6 +1,7 @@
 import { useStore } from '../store/zustandStore'
 import { useEffect, useMemo } from 'react'
 import { COUNTRIES } from '../countries'
+import { IconButton } from './Icons'
 
 export default function FeedFilters() {
   const {
@@ -77,12 +78,12 @@ export default function FeedFilters() {
           <span className="text-primary font-semibold text-lg">{displayLabel}</span>
           <span className="text-xs text-gray-500 ml-2">{essaysTotal} posts</span>
           {feedFilter.active && (
-            <button
+            <IconButton
               onClick={clearFeedFilter}
-              className="text-xs text-primary hover:underline ml-2"
-            >
-              All years
-            </button>
+              icon="close"
+              label="All years"
+              className="ml-2 !h-8 !w-8"
+            />
           )}
         </div>
         <select

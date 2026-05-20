@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/zustandStore'
+import { IconButton } from '../components/Icons'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -60,27 +61,21 @@ export default function Login() {
             />
           </div>
 
-          <button
+          <IconButton
             type="submit"
             disabled={loading}
-            className="w-full px-6 py-3 bg-primary hover:bg-red-700 text-white rounded-lg font-semibold transition-all disabled:opacity-50"
-          >
-            {loading ? 'Logging in...' : 'Log in'}
-          </button>
+            icon="enter"
+            label={loading ? 'Logging in' : 'Log in'}
+            className="icon-button-primary mx-auto"
+          />
         </form>
 
         <div className="flex justify-between text-sm">
-          <button onClick={() => navigate('/forgot-password')} className="text-primary hover:underline">
-            Forgot password?
-          </button>
-          <button onClick={() => navigate('/signup')} className="text-gray-400 hover:text-white">
-            Create account
-          </button>
+          <IconButton onClick={() => navigate('/forgot-password')} icon="spark" label="Forgot password" />
+          <IconButton onClick={() => navigate('/signup')} icon="profile" label="Create account" />
         </div>
 
-        <button onClick={() => navigate('/')} className="w-full text-center text-gray-500 hover:text-gray-300 text-sm">
-          Go back
-        </button>
+        <IconButton onClick={() => navigate('/')} icon="back" label="Go back" className="mx-auto" />
       </div>
     </div>
   )

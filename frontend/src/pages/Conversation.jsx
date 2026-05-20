@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../store/zustandStore'
 import { decryptAstrMessage } from '../services/astrClient'
+import { IconButton } from '../components/Icons'
 
 const APP_TIME_ZONE = 'Asia/Kolkata'
 const SERVER_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/
@@ -221,20 +222,16 @@ export default function Conversation() {
     <div className="flex h-[100dvh] min-h-screen flex-col bg-dark-bg">
       <header className="shrink-0 border-b border-dark-border bg-dark-bg/95 p-4 backdrop-blur z-10">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-4">
-          <button onClick={() => navigate('/messages')} className="text-sm text-gray-400 hover:text-white">
-            Back to messages
-          </button>
-          <button
+          <IconButton onClick={() => navigate('/messages')} icon="back" label="Back to messages" />
+          <IconButton
             type="button"
             onClick={() => conversation && setActionsOpen(true)}
-            className="min-w-0 truncate text-base font-semibold hover:text-primary disabled:cursor-default disabled:hover:text-white"
             disabled={!conversation}
-          >
-            {conversation?.other_user?.username || 'Conversation'}
-          </button>
-          <button onClick={() => navigate('/profile')} className="text-primary text-sm hover:underline">
-            Profile
-          </button>
+            icon="menu"
+            label={conversation?.other_user?.username || 'Conversation'}
+            className="icon-button-primary"
+          />
+          <IconButton onClick={() => navigate('/profile')} icon="profile" label="Profile" />
         </div>
       </header>
 
@@ -305,13 +302,13 @@ export default function Conversation() {
                 placeholder="Write a message..."
                 className="min-w-0 flex-1 rounded-xl border border-dark-border bg-dark-card px-4 py-3 focus:outline-none focus:border-primary"
               />
-              <button
+              <IconButton
                 type="submit"
                 disabled={sending || !body.trim()}
-                className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-              >
-                Send
-              </button>
+                icon="send"
+                label="Send"
+                className="icon-button-primary"
+              />
             </form>
           </>
         ) : null}
@@ -333,13 +330,12 @@ export default function Conversation() {
                   {conversation.other_user?.username}
                 </h2>
               </div>
-              <button
+              <IconButton
                 type="button"
                 onClick={() => setActionsOpen(false)}
-                className="text-sm text-gray-400 hover:text-white"
-              >
-                Close
-              </button>
+                icon="close"
+                label="Close"
+              />
             </div>
 
             <div className="space-y-2">

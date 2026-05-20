@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import TimeSlider from './TimeSlider'
 import { COUNTRIES } from '../countries'
+import { IconButton } from './Icons'
 
 export default function EssayComposer({ onSubmit, isSubmitting }) {
   const [lookAheadMonths, setLookAheadMonths] = useState(360)
@@ -66,17 +67,17 @@ export default function EssayComposer({ onSubmit, isSubmitting }) {
               : `${len} / 2000 characters`}
           </span>
 
-          <button
+          <IconButton
             onClick={handleSubmit}
             disabled={!isValid || isSubmitting}
-            className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+            icon="send"
+            label={isSubmitting ? 'Posting' : 'Post'}
+            className={`${
               isValid && !isSubmitting
-                ? 'bg-primary hover:bg-red-700 text-white'
-                : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                ? 'icon-button-primary'
+                : ''
             }`}
-          >
-            {isSubmitting ? 'Posting...' : 'Post'}
-          </button>
+          />
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/zustandStore'
+import { IconButton } from './Icons'
 
 function EmptyState({ children }) {
   return (
@@ -130,30 +131,24 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
       {showTitle && (
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Messages</h1>
-          <button onClick={() => navigate('/profile')} className="text-sm text-gray-400 hover:text-white">
-            Back to profile
-          </button>
+          <IconButton onClick={() => navigate('/profile')} icon="profile" label="Back to profile" />
         </div>
       )}
 
       {panel === 'all' && (
         <div className="mx-auto grid max-w-sm grid-cols-2 gap-1 rounded-lg border border-dark-border bg-dark-card p-1">
-          <button
+          <IconButton
             onClick={() => setActivePanel('threads')}
-            className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
-              visiblePanel === 'threads' ? 'bg-primary text-white' : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            Conversations
-          </button>
-          <button
+            icon="chat"
+            label="Conversations"
+            className={visiblePanel === 'threads' ? 'icon-button-primary' : ''}
+          />
+          <IconButton
             onClick={() => setActivePanel('requests')}
-            className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
-              visiblePanel === 'requests' ? 'bg-primary text-white' : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            Requests
-          </button>
+            icon="profile"
+            label="Requests"
+            className={visiblePanel === 'requests' ? 'icon-button-primary' : ''}
+          />
         </div>
       )}
 
@@ -219,14 +214,13 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
                 placeholder="Search people..."
                 className="w-full pl-4 pr-16 py-3 bg-dark-card border border-dark-border rounded-xl focus:outline-none focus:border-primary text-base"
               />
-              <button
+              <IconButton
                 type="submit"
-                className="absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-lg bg-primary text-xl leading-none text-white hover:bg-red-700 disabled:opacity-50"
+                className="icon-button-primary absolute right-2 top-1/2 !h-9 !w-9 -translate-y-1/2"
                 disabled={peopleQuery.trim().length < 2}
-                aria-label="Search people"
-              >
-                +
-              </button>
+                icon="search"
+                label="Search people"
+              />
             </form>
 
             {messageSearchResults.length > 0 && (
@@ -239,7 +233,7 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
                     className="flex w-full items-center justify-between gap-3 rounded-lg bg-dark-bg px-3 py-3 text-left hover:bg-dark-border"
                   >
                     <span className="min-w-0 truncate font-medium text-primary">{person.username}</span>
-                    <span className="shrink-0 text-sm text-gray-400">Select</span>
+                    <span className="shrink-0 text-primary" aria-hidden="true">+</span>
                   </button>
                 ))}
               </div>
@@ -260,9 +254,7 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
                     <p className="text-sm text-gray-500">Send request</p>
                     <h2 className="truncate text-xl font-semibold text-primary">{selectedPerson.username}</h2>
                   </div>
-                  <button onClick={closeRequestModal} className="text-sm text-gray-400 hover:text-white">
-                    Close
-                  </button>
+                  <IconButton onClick={closeRequestModal} icon="close" label="Close" />
                 </div>
 
                 <div className="space-y-3">
@@ -276,13 +268,13 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
                   />
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-xs text-gray-500">{requestNote.length}/128</span>
-                    <button
+                    <IconButton
                       onClick={handleStart}
                       disabled={startingUsername === selectedPerson.username || !requestNote.trim()}
-                      className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-                    >
-                      {startingUsername === selectedPerson.username ? 'Sending...' : 'Send request'}
-                    </button>
+                      icon="send"
+                      label={startingUsername === selectedPerson.username ? 'Sending' : 'Send request'}
+                      className="icon-button-primary"
+                    />
                   </div>
                 </div>
               </div>
@@ -302,13 +294,12 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
                         <p className="truncate font-medium text-primary">{request.other_user.username}</p>
                         <p className="mt-1 text-sm text-gray-500">Waiting for reply</p>
                       </div>
-                      <button
+                      <IconButton
                         onClick={() => handleCancel(request.id)}
                         disabled={busyRequestId === request.id}
-                        className="shrink-0 rounded-lg border border-dark-border px-3 py-2 text-sm text-gray-300 hover:border-red-500 hover:text-red-400 disabled:opacity-50"
-                      >
-                        Cancel
-                      </button>
+                        icon="close"
+                        label="Cancel"
+                      />
                     </div>
                     <RequestNote note={request.note} />
                   </div>
@@ -328,20 +319,19 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
                     <div className="flex items-start justify-between gap-3">
                       <p className="min-w-0 truncate font-medium text-primary">{request.other_user.username}</p>
                       <div className="flex shrink-0 gap-2">
-                        <button
+                        <IconButton
                           onClick={() => handleAccept(request.id)}
                           disabled={busyRequestId === request.id}
-                          className="rounded-lg bg-primary px-3 py-2 text-sm text-white hover:bg-red-700 disabled:opacity-50"
-                        >
-                          Accept
-                        </button>
-                        <button
+                          icon="check"
+                          label="Accept"
+                          className="icon-button-primary"
+                        />
+                        <IconButton
                           onClick={() => handleCancel(request.id)}
                           disabled={busyRequestId === request.id}
-                          className="rounded-lg border border-dark-border px-3 py-2 text-sm text-gray-300 hover:border-red-500 hover:text-red-400 disabled:opacity-50"
-                        >
-                          Cancel
-                        </button>
+                          icon="close"
+                          label="Cancel"
+                        />
                       </div>
                     </div>
                     <RequestNote note={request.note} />

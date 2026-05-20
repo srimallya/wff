@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store/zustandStore'
+import { IconButton } from './Icons'
 
 const APP_TIME_ZONE = 'Asia/Kolkata'
 const SERVER_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/
@@ -108,13 +109,13 @@ export default function Chatroom() {
           maxLength={1000}
           className="min-w-0 flex-1 rounded-xl border border-dark-border bg-dark-bg px-4 py-3 focus:outline-none focus:border-primary"
         />
-        <button
+        <IconButton
           type="submit"
           disabled={!body.trim()}
-          className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-        >
-          Send
-        </button>
+          icon="send"
+          label="Send"
+          className="icon-button-primary"
+        />
       </form>
     </div>
   )

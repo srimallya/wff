@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/zustandStore'
+import { Icon, IconButton } from '../components/Icons'
 
 export default function Landing() {
   const navigate = useNavigate()
@@ -7,9 +8,12 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4">
-      <div className="text-center space-y-8 max-w-2xl">
+      <div className="text-center space-y-8 max-w-3xl swiss-squircle border border-dark-border bg-dark-card px-8 py-12 shadow-[0_24px_80px_rgba(17,17,17,0.08)]">
         <div className="space-y-2">
-          <h1 className="text-5xl md:text-7xl font-bold text-primary mb-2">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-white">
+            <Icon name="globe" className="h-8 w-8" />
+          </div>
+          <h1 className="text-5xl md:text-7xl font-bold text-swiss-black mb-2">
             {user.username ? 'World Foresight Forum' : 'Future'}
           </h1>
           <p className="text-lg text-gray-400">
@@ -27,36 +31,35 @@ export default function Landing() {
         <div className="space-y-3 pt-4">
           {user.username ? (
             <div className="space-y-3">
-              <button
+              <IconButton
                 onClick={() => navigate('/feed')}
-                className="w-full max-w-sm mx-auto block px-8 py-4 bg-primary hover:bg-red-700 text-white text-lg font-semibold rounded-xl transition-all shadow-lg shadow-primary/20"
-              >
-                Open forum
-              </button>
-              <button
+                icon="forum"
+                label="Open forum"
+                className="icon-button-primary mx-auto"
+              />
+              <IconButton
                 onClick={() => navigate('/compose')}
-                className="w-full max-w-sm mx-auto block px-8 py-3 bg-dark-card hover:bg-dark-border border border-dark-border text-gray-300 rounded-xl transition-colors text-sm"
-              >
-                Write
-              </button>
+                icon="edit"
+                label="Write"
+                className="mx-auto"
+              />
             </div>
           ) : (
-            <div className="space-y-3">
-              <button
+            <div className="flex justify-center gap-3 pt-2">
+              <IconButton
                 onClick={() => navigate('/login')}
-                className="w-full max-w-sm mx-auto block px-8 py-4 bg-primary hover:bg-red-700 text-white text-lg font-semibold rounded-xl transition-all shadow-lg shadow-primary/20"
-              >
-                Log in
-              </button>
-              <button
+                icon="enter"
+                label="Log in"
+                className="icon-button-primary"
+              />
+              <IconButton
                 onClick={async () => {
                   await initGuest()
                   navigate('/feed')
                 }}
-                className="w-full max-w-sm mx-auto block px-8 py-3 bg-dark-card hover:bg-dark-border border border-dark-border text-gray-400 rounded-xl transition-colors text-sm"
-              >
-                Continue as guest
-              </button>
+                icon="globe"
+                label="Continue as guest"
+              />
             </div>
           )}
         </div>

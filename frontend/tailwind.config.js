@@ -6,15 +6,25 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#DC2626',
+        primary: '#E30613',
+        swiss: {
+          red: '#E30613',
+          black: '#111111',
+          paper: '#F7F5EF',
+          white: '#FFFFFF',
+          gray: '#6B6F76',
+          blue: '#0057B8',
+          yellow: '#FFCC00',
+        },
         dark: {
-          bg: '#0a0a0a',
-          card: '#141414',
-          border: '#262626'
+          bg: '#F7F5EF',
+          card: '#FFFFFF',
+          border: '#D8D5C7'
         }
       },
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['Georgia', 'Times New Roman', 'serif'],
+        serif: ['Georgia', 'Times New Roman', 'serif'],
       }
     },
   },

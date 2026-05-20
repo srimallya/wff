@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/zustandStore'
 import FeedFilters from '../components/FeedFilters'
 import EssayCard from '../components/EssayCard'
+import { IconButton } from '../components/Icons'
 
 export default function Feed() {
   const navigate = useNavigate()
@@ -49,11 +50,11 @@ export default function Feed() {
     <div className="min-h-screen">
       <header className="sticky top-0 bg-dark-bg/95 backdrop-blur border-b border-dark-border p-4 z-10">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <button onClick={handleFeedTab} className="text-primary font-medium text-sm">Forum</button>
+          <IconButton onClick={handleFeedTab} icon="forum" label="Forum" className="icon-button-primary" />
           {user.canPost && (
-            <button onClick={() => navigate('/compose')} className="text-gray-400 hover:text-white text-sm">Write</button>
+            <IconButton onClick={() => navigate('/compose')} icon="edit" label="Write" />
           )}
-          <button onClick={() => navigate('/profile')} className="text-gray-400 hover:text-white text-sm">Profile</button>
+          <IconButton onClick={() => navigate('/profile')} icon="profile" label="Profile" />
         </div>
       </header>
 
@@ -68,20 +69,20 @@ export default function Feed() {
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
             {searchQuery && (
-              <button
+              <IconButton
                 type="button"
                 onClick={handleClearSearch}
-                className="px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors"
-              >
-                Clear
-              </button>
+                icon="close"
+                label="Clear"
+                className="!h-9 !w-9"
+              />
             )}
-            <button
+            <IconButton
               type="submit"
-              className="px-4 py-1.5 bg-primary hover:bg-red-700 text-white text-sm rounded-lg font-medium transition-colors"
-            >
-              Search
-            </button>
+              icon="search"
+              label="Search"
+              className="icon-button-primary !h-9 !w-9"
+            />
           </div>
         </form>
 
@@ -106,9 +107,7 @@ export default function Feed() {
             <div className="text-center py-12 text-gray-500">
               <p>{displayEmptyText}</p>
               {user.canPost && !searchQuery && (
-                <button onClick={() => navigate('/compose')} className="mt-4 text-primary hover:underline">
-                  Write the first post
-                </button>
+                <IconButton onClick={() => navigate('/compose')} icon="edit" label="Write the first post" className="icon-button-primary mt-4" />
               )}
             </div>
           ) : (
