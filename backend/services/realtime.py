@@ -60,6 +60,10 @@ def emit_to_chatroom(event, payload):
     socketio.emit(event, payload, room=chatroom_room())
 
 
+def emit_global(event, payload):
+    socketio.emit(event, payload)
+
+
 def bind_socketio(target_socketio):
     global socketio
     target_id = id(target_socketio)

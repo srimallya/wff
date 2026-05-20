@@ -3,7 +3,7 @@ from backend.models import db, Essay, User, Vote, Comment, CommentVote
 from datetime import datetime
 import json
 from sqlalchemy import func
-from backend.services.realtime import socketio
+from backend.services.realtime import emit_global
 
 essays_bp = Blueprint('wff_essays', __name__)
 
@@ -219,7 +219,7 @@ def create_essay():
         logging.warning(f"Embedding generation failed for essay {essay.id}: {e}")
 
     payload = essay_to_dict(essay, user.id)
-    socketio.emit('essay_created', {'essay': payload})
+    emit_global('essay_created', {'essay': payload})
     return jsonify(payload), 201
 
 @essays_bp.route('/search', methods=['POST'])
