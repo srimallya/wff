@@ -30,7 +30,7 @@ export function IconButton({ icon, label, className = '', ...props }) {
   return (
     <button {...props} aria-label={label} title={label} className={`icon-button ${className}`}>
       <Icon name={icon} />
-      <span className="sr-only">{label}</span>
+      <span className="icon-button-label">{label}</span>
     </button>
   )
 }

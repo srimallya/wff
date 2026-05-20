@@ -123,6 +123,7 @@ class Essay(db.Model):
 
     policy_proposal = db.relationship('PolicyProposal', backref='essay', uselist=False, cascade='all, delete-orphan')
     votes = db.relationship('Vote', backref='essay', lazy=True, cascade='all, delete-orphan')
+    comments = db.relationship('Comment', backref='essay', lazy=True, cascade='all, delete-orphan')
 
     @property
     def upvotes(self):
@@ -147,6 +148,45 @@ class Vote(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (db.UniqueConstraint('user_id', 'essay_id', name='unique_user_essay_vote'),)
+
+class Comment(db.Model):
+    __bind_key__ = WFF_BIND_KEY
+    __tablename__ = 'wff_comment'
+
+    id = db.Column(db.Integer, primary_key=True)
+    essay_id = db.Column(db.Integer, db.ForeignKey('wff_essay.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('wff_user.id'), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', foreign_keys=[user_id])
+    votes = db.relationship('CommentVote', backref='comment', lazy=True, cascade='all, delete-orphan')
+
+    @property
+    def upvotes(self):
+        return sum(1 for v in self.votes if v.value == 1)
+
+    @property
+    def downvotes(self):
+        return sum(1 for v in self.votes if v.value == -1)
+
+    @property
+    def score(self):
+        return sum(v.value for v in self.votes)
+
+class CommentVote(db.Model):
+    __bind_key__ = WFF_BIND_KEY
+    __tablename__ = 'wff_comment_vote'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('wff_user.id'), nullable=False)
+    comment_id = db.Column(db.Integer, db.ForeignKey('wff_comment.id'), nullable=False)
+    value = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', foreign_keys=[user_id])
+
+    __table_args__ = (db.UniqueConstraint('user_id', 'comment_id', name='unique_user_comment_vote'),)
 
 class PolicyProposal(db.Model):
     __bind_key__ = WFF_BIND_KEY

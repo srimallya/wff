@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from backend.models import db, Essay, User, Vote
+from backend.models import db, Essay, User, Vote, Comment, CommentVote
 from datetime import datetime
 import json
 from sqlalchemy import func
@@ -47,7 +47,26 @@ def essay_to_dict(e, current_user_id=None):
         'upvotes': e.upvotes,
         'downvotes': e.downvotes,
         'score': e.score,
-        'user_vote': user_vote
+        'user_vote': user_vote,
+        'comment_count': len(e.comments),
+    }
+
+def comment_to_dict(comment, current_user_id=None):
+    user_vote = None
+    if current_user_id:
+        vote = CommentVote.query.filter_by(user_id=current_user_id, comment_id=comment.id).first()
+        if vote:
+            user_vote = vote.value
+    return {
+        'id': comment.id,
+        'essay_id': comment.essay_id,
+        'username': comment.user.username if comment.user else 'Unknown',
+        'content': comment.content,
+        'created_at': comment.created_at.isoformat(),
+        'upvotes': comment.upvotes,
+        'downvotes': comment.downvotes,
+        'score': comment.score,
+        'user_vote': user_vote,
     }
 
 def search_terms_for_query(query):
@@ -298,4 +317,73 @@ def vote_essay(essay_id):
         'upvotes': essay.upvotes,
         'downvotes': essay.downvotes,
         'user_vote': value
+    })
+
+@essays_bp.route('/<int:essay_id>/comments', methods=['GET'])
+def get_comments(essay_id):
+    Essay.query.get_or_404(essay_id)
+    current_user_id = request.args.get('current_user_id', type=int)
+    comments = (
+        Comment.query
+        .filter_by(essay_id=essay_id)
+        .order_by(Comment.created_at.asc())
+        .all()
+    )
+    return jsonify({
+        'comments': [comment_to_dict(comment, current_user_id) for comment in comments],
+        'total': len(comments),
+    })
+
+@essays_bp.route('/<int:essay_id>/comments', methods=['POST'])
+def create_comment(essay_id):
+    data = request.get_json() or {}
+    essay = Essay.query.get_or_404(essay_id)
+    username = data.get('username')
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'error': 'Valid user required'}), 400
+
+    content = str(data.get('content') or '').strip()
+    if len(content) < 2:
+        return jsonify({'error': 'Comment must be at least 2 characters'}), 400
+    if len(content) > 1000:
+        return jsonify({'error': 'Comment must be at most 1000 characters'}), 400
+
+    comment = Comment(essay_id=essay.id, user_id=user.id, content=content)
+    db.session.add(comment)
+    db.session.commit()
+    return jsonify(comment_to_dict(comment, user.id)), 201
+
+@essays_bp.route('/comments/<int:comment_id>/vote', methods=['POST'])
+def vote_comment(comment_id):
+    data = request.get_json() or {}
+    username = data.get('username')
+    value = data.get('value')
+    if value not in [1, -1, 0]:
+        return jsonify({'error': 'Vote value must be 1, -1, or 0'}), 400
+
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    comment = Comment.query.get_or_404(comment_id)
+    existing = CommentVote.query.filter_by(user_id=user.id, comment_id=comment.id).first()
+
+    if value == 0:
+        if existing:
+            db.session.delete(existing)
+            db.session.commit()
+        return jsonify({'score': comment.score, 'upvotes': comment.upvotes, 'downvotes': comment.downvotes, 'user_vote': None})
+
+    if existing:
+        existing.value = value
+    else:
+        db.session.add(CommentVote(user_id=user.id, comment_id=comment.id, value=value))
+    db.session.commit()
+
+    return jsonify({
+        'score': comment.score,
+        'upvotes': comment.upvotes,
+        'downvotes': comment.downvotes,
+        'user_vote': value,
     })

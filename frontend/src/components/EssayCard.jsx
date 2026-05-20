@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/zustandStore'
 
 export default function EssayCard({ essay }) {
+  const navigate = useNavigate()
   const { user, voteEssay } = useStore()
   const [localScore, setLocalScore] = useState(essay.score || 0)
   const [localVotes, setLocalVotes] = useState({
@@ -10,7 +12,8 @@ export default function EssayCard({ essay }) {
   })
   const [userVote, setUserVote] = useState(essay.user_vote || null)
 
-  const handleVote = async (value) => {
+  const handleVote = async (event, value) => {
+    event.stopPropagation()
     if (!user.username) return
     const newValue = userVote === value ? 0 : value
     const result = await voteEssay(essay.id, newValue)
@@ -22,11 +25,19 @@ export default function EssayCard({ essay }) {
   }
 
   return (
-    <div className="bg-dark-card border border-dark-border rounded-xl p-5">
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={() => !essay.is_pending && navigate(`/posts/${essay.id}`)}
+      onKeyDown={(event) => {
+        if (!essay.is_pending && (event.key === 'Enter' || event.key === ' ')) navigate(`/posts/${essay.id}`)
+      }}
+      className="bg-dark-card border border-dark-border rounded-xl p-5 cursor-pointer transition hover:border-primary/70"
+    >
       <div className="flex gap-4">
         <div className="flex flex-col items-center gap-1 pt-1">
           <button
-            onClick={() => handleVote(1)}
+            onClick={(event) => handleVote(event, 1)}
             disabled={!user.username}
             className={`text-lg font-bold transition-colors ${
               userVote === 1 ? 'text-primary' : 'text-gray-500 hover:text-gray-300'
@@ -40,7 +51,7 @@ export default function EssayCard({ essay }) {
             {localScore}
           </span>
           <button
-            onClick={() => handleVote(-1)}
+            onClick={(event) => handleVote(event, -1)}
             disabled={!user.username}
             className={`text-lg font-bold transition-colors ${
               userVote === -1 ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'
@@ -69,9 +80,10 @@ export default function EssayCard({ essay }) {
           <p className="text-base leading-relaxed whitespace-pre-wrap">{essay.content}</p>
           <div className="flex items-center justify-end text-xs text-gray-600">
             <span>{localVotes.upvotes} ▲ {localVotes.downvotes} ▼</span>
+            <span className="ml-3">{essay.comment_count || 0} comments</span>
           </div>
         </div>
       </div>
-    </div>
+    </article>
   )
 }

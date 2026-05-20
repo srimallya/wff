@@ -6,6 +6,7 @@ import Signup from './pages/Signup'
 import ForgotPassword from './pages/ForgotPassword'
 import Compose from './pages/Compose'
 import Feed from './pages/Feed'
+import PostDetail from './pages/PostDetail'
 import Profile from './pages/Profile'
 import Messages from './pages/Messages'
 import Conversation from './pages/Conversation'
@@ -50,6 +51,7 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/compose" element={<Compose />} />
           <Route path="/feed" element={<Feed />} />
+          <Route path="/posts/:postId" element={<PostDetail />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/messages" element={<Messages />} />
           <Route path="/messages/:conversationId" element={<Conversation />} />
