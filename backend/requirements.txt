@@ -1,0 +1,12 @@
+flask==3.0.3
+flask-sqlalchemy==3.1.1
+flask-cors==5.0.0
+sqlalchemy==2.0.23
+werkzeug==3.0.6
+sentence-transformers==3.4.1
+numpy==1.26.4
+pywebpush==2.0.3
+
+flask-socketio==5.3.6
+simple-websocket==1.1.0
+cryptography==42.0.8

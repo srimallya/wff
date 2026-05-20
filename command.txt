@@ -1,0 +1,161 @@
+# Commands to Run World Foresight Forum
+
+## Option 1: VS Code Play Button (Recommended for Backend Only)
+
+1. Open `backend/app.py` in VS Code
+2. Install dependencies: `cd backend && pip install -r requirements.txt`
+3. Click the Play button (▶️) on the top-right of the editor
+4. Backend runs on http://localhost:7080
+
+For full functionality, also run the frontend dev server (Option 3).
+
+---
+
+## Option 2: Terminal Commands (Full Stack)
+
+### Backend (Terminal 1)
+```bash
+cd backend
+pip install -r requirements.txt
+python app.py
+```
+- Runs on http://localhost:7080
+- Creates SQLite database `wff.db`
+
+### Frontend Dev Server (Terminal 2)
+```bash
+cd frontend
+npm install
+npm run dev
+```
+- Runs on http://localhost:5173
+- Proxies API calls to http://localhost:7080
+
+---
+
+## Option 3: Docker Compose (Full Stack)
+```bash
+docker-compose up
+```
+- Backend: http://localhost:7080
+- Frontend: http://localhost:5173
+
+---
+
+## Option 4: Production-like (Single Server)
+```bash
+# Build frontend
+cd frontend
+npm install
+npm run build
+
+# Start backend (serves frontend dist)
+cd backend
+pip install -r requirements.txt
+python app.py
+```
+- Everything on http://localhost:7080
+- Production path is https://thetrustcommons.com/wff/
+- The frontend build uses `VITE_BASE_PATH=/wff/`, so social preview assets and app routes resolve under that subpath.
+- REST and Socket.IO also work through the same prefix:
+  - http://localhost:7080/wff/api/health
+  - http://localhost:7080/wff/socket.io/?EIO=4&transport=polling
+
+---
+
+## Production Host: ttc_webapp + launchd
+
+Important future-agent context: the public deployment is **not** started from this repo's standalone `backend/app.py`. It is mounted from the sibling `ttc_webapp` repo through `/Users/srimallyamaitra/codes/ttc_webapp/app.py` and runs in production under Gunicorn.
+
+Production URL:
+- https://thetrustcommons.com/wff/
+
+Production host app:
+- `/Users/srimallyamaitra/codes/ttc_webapp/app.py`
+- Mount prefix: `/wff`
+- WFF API prefix: `/wff/api`
+- WFF Socket.IO path: `/wff/socket.io`
+- The host app must bind WFF realtime handlers from `backend/services/realtime.py`.
+- The host app must run WFF schema upgrades from `backend/services/schema.py`.
+- The LaunchAgent uses Gunicorn with the `eventlet` worker so WebSocket chat and message-request realtime events work.
+- PWA push uses `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` when provided. If those env vars are missing in this mounted deployment, WFF falls back to the host key at `/Users/srimallyamaitra/codes/ttc_webapp/database/security/vapid_private.pem`.
+
+Start:
+```bash
+launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.trustcommons.webapp.plist
+launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.trustcommons.cloudflared.plist
+launchctl kickstart -k gui/$UID/com.trustcommons.webapp
+launchctl kickstart -k gui/$UID/com.trustcommons.cloudflared
+```
+
+Stop:
+```bash
+launchctl bootout gui/$UID/com.trustcommons.webapp
+launchctl bootout gui/$UID/com.trustcommons.cloudflared
+```
+
+After changing production-sensitive backend, socket, notification, or route code, restart the host and tunnel with the commands above, then verify:
+
+```bash
+curl -i https://thetrustcommons.com/wff/api/health
+curl -i 'https://thetrustcommons.com/wff/socket.io/?EIO=4&transport=polling'
+```
+
+---
+
+## Social Preview Check
+
+The app provides Open Graph and Twitter card metadata in `frontend/index.html`:
+
+- `og:url`: https://thetrustcommons.com/wff/
+- `og:image`: https://thetrustcommons.com/wff/og-image.png
+- preview image source: `frontend/public/og-image.svg`
+- rendered PNG used by social platforms: `frontend/public/og-image.png`
+
+After deploying a new build, refresh link previews with:
+
+- Facebook Sharing Debugger: https://developers.facebook.com/tools/debug/
+- LinkedIn Post Inspector: https://www.linkedin.com/post-inspector/
+
+Instagram usually reuses Meta/Facebook scraping behavior for shared links, but cache refresh is still controlled through Meta’s debugger.
+
+---
+
+## Verify It's Working
+
+Open browser to: http://localhost:7080
+
+You should see:
+- `{"message":"World Foresight Forum API running","endpoints":[...]}`
+
+Health check: http://localhost:7080/api/health
+
+---
+
+## Troubleshooting
+
+### "Module not found" errors
+```bash
+pip install flask flask-sqlalchemy flask-cors sqlalchemy
+```
+
+### Port already in use
+Kill processes on port 7080:
+```bash
+lsof -ti:7080 | xargs kill -9
+```
+
+### Reset database
+```bash
+rm backend/wff.db
+```
+Database will be recreated on next startup.
+
+---
+
+## Frontend Development Notes
+
+- Vite dev server on port 5173 proxies `/api` requests to backend on 7080
+- Vite also proxies `/socket.io` to backend on 7080 for live chat during local development
+- No need to build frontend when using dev server
+- TailwindCSS for styling with dark theme (#0a0a0a background, #DC2626 primary)

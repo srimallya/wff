@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0a0a0a"/>
+  <circle cx="955" cy="190" r="150" fill="none" stroke="#dc2626" stroke-width="24" opacity="0.9"/>
+  <path d="M810 190h290M955 40c48 40 74 90 74 150s-26 110-74 150M955 40c-48 40-74 90-74 150s26 110 74 150" fill="none" stroke="#f4f4f5" stroke-width="15" stroke-linecap="round" opacity="0.9"/>
+  <text x="86" y="210" fill="#f4f4f5" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="82" font-weight="800">World Foresight Forum</text>
+  <text x="90" y="292" fill="#a1a1aa" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="34" font-weight="500">A global policy hub for possible futures</text>
+  <text x="92" y="522" fill="#dc2626" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="28" font-weight="700">thetrustcommons.com/wff</text>
+</svg>

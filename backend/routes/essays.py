@@ -1,0 +1,301 @@
+from flask import Blueprint, request, jsonify
+from backend.models import db, Essay, User, Vote
+from datetime import datetime
+import json
+from sqlalchemy import func
+from backend.services.realtime import socketio
+
+essays_bp = Blueprint('wff_essays', __name__)
+
+QUERY_EXPANSIONS = {
+    'green': ['climate', 'environment', 'sustainability'],
+}
+
+def calculate_age_from_birthdate(birthdate_str):
+    try:
+        birth_date = datetime.strptime(birthdate_str, '%Y-%m-%d')
+        today = datetime.now()
+        age = today.year - birth_date.year
+        if (today.month, today.day) < (birth_date.month, birth_date.day):
+            age -= 1
+        return age
+    except:
+        return None
+
+def essay_to_dict(e, current_user_id=None):
+    user = User.query.get(e.user_id)
+    current_age = calculate_age_from_birthdate(user.birthdate) if user and user.birthdate else None
+
+    user_vote = None
+    if current_user_id:
+        vote = Vote.query.filter_by(user_id=current_user_id, essay_id=e.id).first()
+        if vote:
+            user_vote = vote.value
+
+    return {
+        'id': e.id,
+        'username': user.username if user else 'Unknown',
+        'content': e.content,
+        'country': e.country or 'Global',
+        'country_code': e.country_code or 'GLOBAL',
+        'look_ahead_months': e.look_ahead_months,
+        'target_calendar_year': e.target_calendar_year,
+        'author_current_age': current_age,
+        'target_age': e.target_age,
+        'created_at': e.created_at.isoformat(),
+        'is_policy_proposal': e.is_policy_proposal,
+        'upvotes': e.upvotes,
+        'downvotes': e.downvotes,
+        'score': e.score,
+        'user_vote': user_vote
+    }
+
+def search_terms_for_query(query):
+    normalized_query = query.lower().strip()
+    terms = {normalized_query}
+
+    for token in normalized_query.split():
+        terms.update(QUERY_EXPANSIONS.get(token, []))
+
+    return [term for term in terms if len(term) > 1]
+
+@essays_bp.route('', methods=['GET'])
+def get_essays():
+    year = request.args.get('year', type=int)
+    country_code = request.args.get('country_code', type=str)
+    username = request.args.get('username', type=str)
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    current_user_id = request.args.get('current_user_id', type=int)
+
+    query = Essay.query
+
+    if country_code:
+        query = query.filter(Essay.country_code == country_code.strip().upper())
+
+    if year:
+        query = query.filter(Essay.target_calendar_year == year)
+        essays = query.order_by(Essay.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+        return jsonify({
+            'essays': [essay_to_dict(e, current_user_id) for e in essays.items],
+            'total': essays.total,
+            'pages': essays.pages,
+            'current_page': essays.page
+        })
+
+    if username:
+        user = User.query.filter_by(username=username).first()
+        if user:
+            query = query.filter(Essay.user_id == user.id)
+        essays = query.order_by(Essay.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+        return jsonify({
+            'essays': [essay_to_dict(e, current_user_id) for e in essays.items],
+            'total': essays.total,
+            'pages': essays.pages,
+            'current_page': essays.page
+        })
+
+    essays = query.order_by(Essay.created_at.desc()).limit(10).all()
+    return jsonify({
+        'essays': [essay_to_dict(e, current_user_id) for e in essays],
+        'total': len(essays),
+        'pages': 1,
+        'current_page': 1
+    })
+
+@essays_bp.route('/year-counts', methods=['GET'])
+def get_year_counts():
+    current_year = datetime.now().year
+    start_year = request.args.get('start_year', current_year, type=int)
+    end_year = request.args.get('end_year', current_year + 100, type=int)
+
+    if end_year < start_year:
+        start_year, end_year = end_year, start_year
+
+    rows = (
+        db.session.query(Essay.target_calendar_year, func.count(Essay.id))
+        .filter(Essay.target_calendar_year >= start_year)
+        .filter(Essay.target_calendar_year <= end_year)
+        .group_by(Essay.target_calendar_year)
+        .all()
+    )
+    counts_by_year = {year: count for year, count in rows}
+    counts = [
+        {'year': year, 'count': counts_by_year.get(year, 0)}
+        for year in range(start_year, end_year + 1)
+    ]
+
+    return jsonify({
+        'counts': counts,
+        'max_count': max((item['count'] for item in counts), default=0),
+        'start_year': start_year,
+        'end_year': end_year
+    })
+
+@essays_bp.route('/<int:essay_id>', methods=['GET'])
+def get_essay(essay_id):
+    essay = Essay.query.get_or_404(essay_id)
+    current_user_id = request.args.get('current_user_id', type=int)
+    return jsonify(essay_to_dict(essay, current_user_id))
+
+@essays_bp.route('', methods=['POST'])
+def create_essay():
+    data = request.get_json()
+
+    if 'look_ahead_months' not in data:
+        return jsonify({'error': 'look_ahead_months is required.'}), 400
+
+    content = data.get('content', '')
+    if not content or len(content) < 50:
+        return jsonify({'error': 'Content must be at least 50 characters'}), 400
+    if len(content) > 2000:
+        return jsonify({'error': 'Content must be at most 2000 characters'}), 400
+
+    username = data.get('username')
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'error': 'Valid user required'}), 400
+
+    if user.is_guest:
+        return jsonify({'error': 'Guests cannot post.'}), 403
+    if not user.is_bengali:
+        return jsonify({'error': 'Only registered writing accounts can post.'}), 403
+    if not user.birthdate:
+        return jsonify({'error': 'Birthdate required to post.'}), 403
+
+    look_ahead_months = data.get('look_ahead_months')
+    country = str(data.get('country') or 'Global').strip()[:80] or 'Global'
+    country_code = str(data.get('country_code') or 'GLOBAL').strip().upper()[:8] or 'GLOBAL'
+    current_year = datetime.now().year
+    target_calendar_year = current_year + (look_ahead_months // 12)
+
+    current_age = calculate_age_from_birthdate(user.birthdate)
+    target_age = None
+    if current_age:
+        target_age = current_age + (look_ahead_months // 12)
+
+    essay = Essay(
+        user_id=user.id,
+        content=content,
+        country=country,
+        country_code=country_code,
+        look_ahead_months=look_ahead_months,
+        target_calendar_year=target_calendar_year,
+        author_age_at_writing=current_age,
+        target_age=target_age,
+        is_policy_proposal=data.get('is_policy_proposal', False)
+    )
+
+    db.session.add(essay)
+    db.session.commit()
+
+    # Generate semantic embedding asynchronously (don't fail creation if this errors)
+    try:
+        from backend.services.embedding import get_embedding
+        essay.embedding_json = json.dumps(get_embedding(content))
+        db.session.commit()
+    except Exception as e:
+        import logging
+        logging.warning(f"Embedding generation failed for essay {essay.id}: {e}")
+
+    payload = essay_to_dict(essay, user.id)
+    socketio.emit('essay_created', {'essay': payload})
+    return jsonify(payload), 201
+
+@essays_bp.route('/search', methods=['POST'])
+def search_essays():
+    data = request.get_json(silent=True) or {}
+    query = data.get('query', '').strip()
+    try:
+        limit = int(data.get('limit', 20))
+    except (TypeError, ValueError):
+        limit = 20
+    try:
+        current_user_id = int(data.get('current_user_id')) if data.get('current_user_id') else None
+    except (TypeError, ValueError):
+        current_user_id = None
+
+    if not query:
+        return jsonify({'essays': [], 'total': 0})
+
+    search_terms = search_terms_for_query(query)
+    essays = Essay.query.all()
+    lexical_matches = [
+        essay for essay in essays
+        if any(term in essay.content.lower() for term in search_terms)
+    ]
+
+    if lexical_matches:
+        lexical_matches.sort(key=lambda essay: essay.created_at, reverse=True)
+        top = [essay_to_dict(e, current_user_id) for e in lexical_matches[:limit]]
+        return jsonify({'essays': top, 'total': len(top)})
+
+    try:
+        import numpy as np
+        from backend.services.embedding import get_embedding, embedding_from_json, cosine_similarity
+        query_emb = np.array(get_embedding(query), dtype=np.float32)
+    except Exception as e:
+        return jsonify({'error': f'Search unavailable: {str(e)}'}), 503
+
+    scored = []
+
+    for essay in essays:
+        if essay.embedding_json:
+            emb = embedding_from_json(essay.embedding_json)
+            if emb is not None:
+                sim = cosine_similarity(query_emb, emb)
+                scored.append((sim, essay))
+        else:
+            # Fallback: generate embedding on-the-fly if missing
+            try:
+                emb = np.array(get_embedding(essay.content), dtype=np.float32)
+                sim = cosine_similarity(query_emb, emb)
+                scored.append((sim, essay))
+                # Cache it
+                essay.embedding_json = json.dumps(emb.tolist())
+                db.session.commit()
+            except Exception:
+                pass
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    top = [essay_to_dict(e, current_user_id) for _, e in scored[:limit]]
+
+    return jsonify({'essays': top, 'total': len(top)})
+
+@essays_bp.route('/<int:essay_id>/vote', methods=['POST'])
+def vote_essay(essay_id):
+    data = request.get_json()
+    username = data.get('username')
+    value = data.get('value')
+
+    if value not in [1, -1, 0]:
+        return jsonify({'error': 'Vote value must be 1 (upvote), -1 (downvote), or 0 (remove)'}), 400
+
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    essay = Essay.query.get_or_404(essay_id)
+
+    existing = Vote.query.filter_by(user_id=user.id, essay_id=essay.id).first()
+
+    if value == 0:
+        if existing:
+            db.session.delete(existing)
+            db.session.commit()
+        return jsonify({'score': essay.score, 'upvotes': essay.upvotes, 'downvotes': essay.downvotes, 'user_vote': None})
+
+    if existing:
+        existing.value = value
+    else:
+        vote = Vote(user_id=user.id, essay_id=essay.id, value=value)
+        db.session.add(vote)
+
+    db.session.commit()
+
+    return jsonify({
+        'score': essay.score,
+        'upvotes': essay.upvotes,
+        'downvotes': essay.downvotes,
+        'user_vote': value
+    })
