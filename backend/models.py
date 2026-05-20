@@ -33,23 +33,23 @@ class User(db.Model):
     security_q2 = db.Column(db.String(200), nullable=True)
     security_a2_hash = db.Column(db.String(200), nullable=True)
 
-    essays = db.relationship('Essay', backref='author', lazy=True, cascade='all, delete-orphan')
-    votes = db.relationship('Vote', backref='user', lazy=True, cascade='all, delete-orphan')
+    essays = db.relationship('backend.models.Essay', backref='author', lazy=True, cascade='all, delete-orphan')
+    votes = db.relationship('backend.models.Vote', backref='user', lazy=True, cascade='all, delete-orphan')
     sent_message_requests = db.relationship(
-        'MessageRequest',
-        foreign_keys='MessageRequest.sender_id',
+        'backend.models.MessageRequest',
+        foreign_keys='backend.models.MessageRequest.sender_id',
         backref='sender',
         lazy=True,
         cascade='all, delete-orphan',
     )
     received_message_requests = db.relationship(
-        'MessageRequest',
-        foreign_keys='MessageRequest.receiver_id',
+        'backend.models.MessageRequest',
+        foreign_keys='backend.models.MessageRequest.receiver_id',
         backref='receiver',
         lazy=True,
         cascade='all, delete-orphan',
     )
-    device_keys = db.relationship('UserDeviceKey', backref='user', lazy=True, cascade='all, delete-orphan')
+    device_keys = db.relationship('backend.models.UserDeviceKey', backref='user', lazy=True, cascade='all, delete-orphan')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -121,9 +121,9 @@ class Essay(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_policy_proposal = db.Column(db.Boolean, default=False)
 
-    policy_proposal = db.relationship('PolicyProposal', backref='essay', uselist=False, cascade='all, delete-orphan')
-    votes = db.relationship('Vote', backref='essay', lazy=True, cascade='all, delete-orphan')
-    comments = db.relationship('Comment', backref='essay', lazy=True, cascade='all, delete-orphan')
+    policy_proposal = db.relationship('backend.models.PolicyProposal', backref='essay', uselist=False, cascade='all, delete-orphan')
+    votes = db.relationship('backend.models.Vote', backref='essay', lazy=True, cascade='all, delete-orphan')
+    comments = db.relationship('backend.models.Comment', backref='essay', lazy=True, cascade='all, delete-orphan')
 
     @property
     def upvotes(self):
@@ -159,8 +159,8 @@ class Comment(db.Model):
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    user = db.relationship('User', foreign_keys=[user_id])
-    votes = db.relationship('CommentVote', backref='comment', lazy=True, cascade='all, delete-orphan')
+    user = db.relationship('backend.models.User', foreign_keys=[user_id])
+    votes = db.relationship('backend.models.CommentVote', backref='comment', lazy=True, cascade='all, delete-orphan')
 
     @property
     def upvotes(self):
@@ -184,7 +184,7 @@ class CommentVote(db.Model):
     value = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    user = db.relationship('User', foreign_keys=[user_id])
+    user = db.relationship('backend.models.User', foreign_keys=[user_id])
 
     __table_args__ = (db.UniqueConstraint('user_id', 'comment_id', name='unique_user_comment_vote'),)
 
@@ -221,10 +221,10 @@ class Conversation(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    user_one = db.relationship('User', foreign_keys=[user_one_id])
-    user_two = db.relationship('User', foreign_keys=[user_two_id])
-    messages = db.relationship('Message', backref='conversation', lazy=True, cascade='all, delete-orphan')
-    reads = db.relationship('ConversationRead', backref='conversation', lazy=True, cascade='all, delete-orphan')
+    user_one = db.relationship('backend.models.User', foreign_keys=[user_one_id])
+    user_two = db.relationship('backend.models.User', foreign_keys=[user_two_id])
+    messages = db.relationship('backend.models.Message', backref='conversation', lazy=True, cascade='all, delete-orphan')
+    reads = db.relationship('backend.models.ConversationRead', backref='conversation', lazy=True, cascade='all, delete-orphan')
 
 class Message(db.Model):
     __bind_key__ = WFF_BIND_KEY
@@ -249,7 +249,7 @@ class Message(db.Model):
     failure_reason = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    sender = db.relationship('User', foreign_keys=[sender_id])
+    sender = db.relationship('backend.models.User', foreign_keys=[sender_id])
 
 class ChatroomMessage(db.Model):
     __bind_key__ = WFF_BIND_KEY
@@ -261,7 +261,7 @@ class ChatroomMessage(db.Model):
     client_nonce = db.Column(db.String(64), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    sender = db.relationship('User', foreign_keys=[sender_id])
+    sender = db.relationship('backend.models.User', foreign_keys=[sender_id])
 
 class ConversationRead(db.Model):
     __bind_key__ = WFF_BIND_KEY
@@ -273,7 +273,7 @@ class ConversationRead(db.Model):
     last_read_at = db.Column(db.DateTime, nullable=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    user = db.relationship('User', foreign_keys=[user_id])
+    user = db.relationship('backend.models.User', foreign_keys=[user_id])
 
     __table_args__ = (
         db.UniqueConstraint('conversation_id', 'user_id', name='unique_conversation_user_read'),
@@ -291,4 +291,4 @@ class PushSubscription(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    user = db.relationship('User', foreign_keys=[user_id])
+    user = db.relationship('backend.models.User', foreign_keys=[user_id])
