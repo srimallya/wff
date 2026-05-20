@@ -99,7 +99,7 @@ export default function Chatroom() {
 
       <form
         onSubmit={handleSubmit}
-        className="sticky bottom-0 flex shrink-0 gap-5 border-t border-dark-border bg-dark-bg/95 px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur"
+        className="sticky bottom-0 flex shrink-0 gap-5 border-t border-dark-border bg-dark-bg/95 px-3 py-3 pb-2 backdrop-blur"
       >
         <input
           type="text"

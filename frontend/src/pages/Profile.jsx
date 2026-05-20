@@ -4,7 +4,7 @@ import { useStore } from '../store/zustandStore'
 import EssayCard from '../components/EssayCard'
 import Chatroom from '../components/Chatroom'
 import MessageHub from '../components/MessageHub'
-import { IconButton } from '../components/Icons'
+import { Icon, IconButton } from '../components/Icons'
 import BottomNav from '../components/BottomNav'
 
 export default function Profile() {
@@ -203,13 +203,15 @@ export default function Profile() {
                     <p className="text-sm text-gray-400">Public name</p>
                     <div className="flex items-center gap-2">
                       <p className="min-w-0 break-words text-2xl font-semibold text-primary">{user.username}</p>
-                      <IconButton
+                      <button
                         type="button"
                         onClick={copyPublicName}
-                        icon={copiedUsername ? 'check' : 'spark'}
-                        label="Copy public name"
-                        className="!h-9 !w-9"
-                      />
+                        aria-label={copiedUsername ? 'Copied' : 'Copy public name'}
+                        title={copiedUsername ? 'Copied' : 'Copy public name'}
+                        className="shrink-0 text-gray-500 hover:text-primary"
+                      >
+                        <Icon name={copiedUsername ? 'check' : 'copy'} className="h-5 w-5" />
+                      </button>
                     </div>
                     <p className="text-xs text-gray-500">Visible to everyone</p>
                   </div>
@@ -256,7 +258,7 @@ export default function Profile() {
                       <button
                         type="button"
                         onClick={toggleNotifications}
-                        className={`relative h-6 w-10 rounded-full transition-colors ${notificationsOn ? 'bg-primary' : 'bg-dark-border'}`}
+                        className={`relative h-7 w-12 rounded-full transition-colors ${notificationsOn ? 'bg-primary' : 'bg-dark-border'}`}
                         aria-pressed={notificationsOn}
                         aria-label="PWA notifications"
                       >

@@ -82,3 +82,8 @@ def ensure_schema():
                 FOREIGN KEY(sender_id) REFERENCES "wff_user" (id)
             )
         ''')
+
+    if 'wff_comment' in table_names:
+        comment_columns = {column['name'] for column in inspector.get_columns('wff_comment')}
+        if 'parent_id' not in comment_columns:
+            execute('ALTER TABLE "wff_comment" ADD COLUMN parent_id INTEGER')

@@ -6,7 +6,7 @@ import EssayCard from '../components/EssayCard'
 import { IconButton } from '../components/Icons'
 import BottomNav from '../components/BottomNav'
 
-function CommentCard({ comment, onVote }) {
+function CommentCard({ comment, onVote, onReply, replyingTo, replyContent, setReplyContent, submitReply, submittingReply }) {
   const [score, setScore] = useState(comment.score || 0)
   const [votes, setVotes] = useState({ upvotes: comment.upvotes || 0, downvotes: comment.downvotes || 0 })
   const [userVote, setUserVote] = useState(comment.user_vote || null)
@@ -36,7 +36,39 @@ function CommentCard({ comment, onVote }) {
             <span>{new Date(comment.created_at).toLocaleString()}</span>
           </div>
           <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{comment.content}</p>
-          <p className="text-xs text-gray-500">{votes.upvotes} ▲ {votes.downvotes} ▼</p>
+          <div className="flex items-center gap-4 text-xs text-gray-500">
+            <span>{votes.upvotes} ▲ {votes.downvotes} ▼</span>
+            <button type="button" onClick={() => onReply(comment.id)} className="text-primary">Reply</button>
+          </div>
+          {replyingTo === comment.id && (
+            <form onSubmit={(event) => submitReply(event, comment.id)} className="space-y-2 pt-2">
+              <textarea
+                value={replyContent}
+                onChange={(event) => setReplyContent(event.target.value.slice(0, 1000))}
+                placeholder="Reply to this comment..."
+                rows={3}
+                className="w-full resize-none border-0 border-b px-0 py-2 text-sm focus:border-primary focus:outline-none"
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">{replyContent.length}/1000</span>
+                <IconButton type="submit" label={submittingReply ? 'Replying' : 'Post reply'} disabled={submittingReply || replyContent.trim().length < 2} className="icon-button-primary" />
+              </div>
+            </form>
+          )}
+          {comment.replies?.length > 0 && (
+            <div className="space-y-3 border-l border-dark-border pl-4">
+              {comment.replies.map((reply) => (
+                <div key={reply.id} className="space-y-1">
+                  <div className="text-xs text-gray-500">
+                    <span className="font-semibold text-primary">{reply.username}</span>
+                    <span className="mx-2">•</span>
+                    <span>{new Date(reply.created_at).toLocaleString()}</span>
+                  </div>
+                  <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{reply.content}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -50,9 +82,12 @@ export default function PostDetail() {
   const [post, setPost] = useState(null)
   const [comments, setComments] = useState([])
   const [content, setContent] = useState('')
+  const [replyingTo, setReplyingTo] = useState(null)
+  const [replyContent, setReplyContent] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [submittingReply, setSubmittingReply] = useState(false)
 
   const loadPost = async () => {
     setLoading(true)
@@ -100,6 +135,33 @@ export default function PostDetail() {
       setError(err.message || 'Comment failed')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const submitReply = async (event, parentId) => {
+    event.preventDefault()
+    if (!user.username || !replyContent.trim()) return
+    setSubmittingReply(true)
+    setError('')
+    try {
+      const res = await fetch(`${API_BASE}/essays/${postId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user.username, content: replyContent.trim(), parent_id: parentId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Reply failed')
+      setComments((items) => items.map((item) => (
+        item.id === parentId
+          ? { ...item, replies: [...(item.replies || []), data] }
+          : item
+      )))
+      setReplyContent('')
+      setReplyingTo(null)
+    } catch (err) {
+      setError(err.message || 'Reply failed')
+    } finally {
+      setSubmittingReply(false)
     }
   }
 
@@ -162,7 +224,19 @@ export default function PostDetail() {
                 {comments.length === 0 ? (
                   <div className="border-t border-dark-border py-5 text-center text-sm text-gray-500">No comments yet</div>
                 ) : (
-                  comments.map((comment) => <CommentCard key={comment.id} comment={comment} onVote={voteComment} />)
+                  comments.map((comment) => (
+                    <CommentCard
+                      key={comment.id}
+                      comment={comment}
+                      onVote={voteComment}
+                      onReply={setReplyingTo}
+                      replyingTo={replyingTo}
+                      replyContent={replyContent}
+                      setReplyContent={setReplyContent}
+                      submitReply={submitReply}
+                      submittingReply={submittingReply}
+                    />
+                  ))
                 )}
               </div>
             </section>

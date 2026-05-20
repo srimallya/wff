@@ -3,6 +3,7 @@ const paths = {
   chat: 'M7 8h10M7 12h6M5 20l3-3h9a4 4 0 004-4V7a4 4 0 00-4-4H7a4 4 0 00-4 4v6a4 4 0 004 4h1',
   check: 'M5 13l4 4L19 7',
   close: 'M6 6l12 12M18 6L6 18',
+  copy: 'M8 8h10v10H8V8zM6 16H5a1 1 0 01-1-1V5a1 1 0 011-1h10a1 1 0 011 1v1',
   delete: 'M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3',
   edit: 'M4 20h4l10-10a2.8 2.8 0 00-4-4L4 16v4zM13 7l4 4',
   enter: 'M10 17l5-5-5-5M15 12H3M21 3v18',

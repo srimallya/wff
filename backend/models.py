@@ -156,11 +156,13 @@ class Comment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     essay_id = db.Column(db.Integer, db.ForeignKey('wff_essay.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('wff_user.id'), nullable=False)
+    parent_id = db.Column(db.Integer, db.ForeignKey('wff_comment.id'), nullable=True)
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     user = db.relationship('backend.models.User', foreign_keys=[user_id])
     votes = db.relationship('backend.models.CommentVote', backref='comment', lazy=True, cascade='all, delete-orphan')
+    replies = db.relationship('backend.models.Comment', backref=db.backref('parent', remote_side=[id]), lazy=True, cascade='all, delete-orphan')
 
     @property
     def upvotes(self):

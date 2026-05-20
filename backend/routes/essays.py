@@ -60,6 +60,7 @@ def comment_to_dict(comment, current_user_id=None):
     return {
         'id': comment.id,
         'essay_id': comment.essay_id,
+        'parent_id': comment.parent_id,
         'username': comment.user.username if comment.user else 'Unknown',
         'content': comment.content,
         'created_at': comment.created_at.isoformat(),
@@ -325,12 +326,21 @@ def get_comments(essay_id):
     current_user_id = request.args.get('current_user_id', type=int)
     comments = (
         Comment.query
-        .filter_by(essay_id=essay_id)
+        .filter_by(essay_id=essay_id, parent_id=None)
         .order_by(Comment.created_at.asc())
         .all()
     )
     return jsonify({
-        'comments': [comment_to_dict(comment, current_user_id) for comment in comments],
+        'comments': [
+            {
+                **comment_to_dict(comment, current_user_id),
+                'replies': [
+                    comment_to_dict(reply, current_user_id)
+                    for reply in sorted(comment.replies, key=lambda item: item.created_at)
+                ],
+            }
+            for comment in comments
+        ],
         'total': len(comments),
     })
 
@@ -349,7 +359,16 @@ def create_comment(essay_id):
     if len(content) > 1000:
         return jsonify({'error': 'Comment must be at most 1000 characters'}), 400
 
-    comment = Comment(essay_id=essay.id, user_id=user.id, content=content)
+    parent_id = data.get('parent_id')
+    parent = None
+    if parent_id:
+        parent = Comment.query.filter_by(id=parent_id, essay_id=essay.id).first()
+        if not parent:
+            return jsonify({'error': 'Parent comment not found'}), 404
+        if parent.parent_id:
+            return jsonify({'error': 'Only one level of replies is supported'}), 400
+
+    comment = Comment(essay_id=essay.id, user_id=user.id, parent_id=parent.id if parent else None, content=content)
     db.session.add(comment)
     db.session.commit()
     return jsonify(comment_to_dict(comment, user.id)), 201

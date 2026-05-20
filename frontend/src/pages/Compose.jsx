@@ -37,11 +37,13 @@ export default function Compose() {
   const handleSubmit = async (essayData) => {
     setError('')
     setIsSubmitting(true)
-    createEssay(essayData).then((result) => {
-      setIsSubmitting(false)
-      if (result && result.error) setError(result.error)
-    })
-    navigate('/feed')
+    const result = await createEssay(essayData)
+    setIsSubmitting(false)
+    if (result && !result.error) {
+      navigate('/feed')
+      return
+    }
+    setError(result?.error || 'Post failed')
   }
 
   return (
