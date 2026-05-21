@@ -595,8 +595,10 @@ export const useStore = create((set, get) => ({
       })
       const d = await res.json()
       if (res.ok) {
-        const decrypted = sendConversation ? await decryptConversation({ ...sendConversation, messages: [d.message] }, user) : { messages: [d.message] }
-        return { success: true, message: decrypted.messages[0] }
+        const decrypted = sendConversation
+          ? await decryptConversation({ ...sendConversation, messages: [...(sendConversation.messages || []), d.message] }, user)
+          : { messages: [d.message] }
+        return { success: true, message: decrypted.messages[decrypted.messages.length - 1], conversation: decrypted }
       }
       return { success: false, error: d.error || 'Message could not be sent' }
     } catch (e) {
@@ -607,6 +609,9 @@ export const useStore = create((set, get) => ({
         return { success: false, error: 'Your secure key could not be uploaded. Try again.' }
       }
       if (e instanceof AstrClientError) {
+        if (e.code === 'SECURE_STATE_MISMATCH') {
+          return { success: false, error: 'Secure state mismatch. Refresh the conversation and try again.' }
+        }
         return { success: false, error: 'Secure session could not be created' }
       }
       return { success: false, error: 'Network error' }

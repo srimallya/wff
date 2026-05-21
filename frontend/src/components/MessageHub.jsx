@@ -20,6 +20,14 @@ function RequestNote({ note }) {
   )
 }
 
+function loadNicknames() {
+  try {
+    return JSON.parse(localStorage.getItem('wff_friend_nicknames') || '{}')
+  } catch (e) {
+    return {}
+  }
+}
+
 export default function MessageHub({ showTitle = true, panel = 'all' }) {
   const navigate = useNavigate()
   const {
@@ -43,6 +51,7 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
   const [statusText, setStatusText] = useState('')
   const [busyRequestId, setBusyRequestId] = useState(null)
   const [startingUsername, setStartingUsername] = useState('')
+  const [nicknames, setNicknames] = useState(() => loadNicknames())
 
   const visiblePanel = panel === 'all' ? activePanel : panel
 
@@ -53,6 +62,12 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
   useEffect(() => {
     setActivePanel(panel === 'all' ? 'threads' : panel)
   }, [panel])
+
+  useEffect(() => {
+    const refreshNicknames = () => setNicknames(loadNicknames())
+    window.addEventListener('focus', refreshNicknames)
+    return () => window.removeEventListener('focus', refreshNicknames)
+  }, [])
 
   const filteredThreads = useMemo(() => {
     const q = threadQuery.trim().toLowerCase()
@@ -179,8 +194,11 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className={`truncate font-medium ${thread.unread_count > 0 ? 'text-white' : 'text-primary'}`}>
-                        {thread.other_user.username}
+                        {nicknames[thread.other_user.username] || thread.other_user.username}
                       </p>
+                      {nicknames[thread.other_user.username] && (
+                        <p className="mt-0.5 truncate text-xs text-gray-500">{thread.other_user.username}</p>
+                      )}
                       <p className={`mt-1 truncate text-sm ${thread.unread_count > 0 ? 'text-gray-200' : 'text-gray-500'}`}>
                         {thread.last_message?.body || 'Open conversation'}
                       </p>

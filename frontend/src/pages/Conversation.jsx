@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../store/zustandStore'
-import { decryptAstrMessage } from '../services/astrClient'
 import { IconButton } from '../components/Icons'
 
 const APP_TIME_ZONE = 'Asia/Kolkata'
@@ -52,15 +51,27 @@ function dateBucket(value) {
   return date.toLocaleDateString('bn-BD', { timeZone: APP_TIME_ZONE, year: 'numeric', month: 'long', day: 'numeric' })
 }
 
-function advanceChannel(channel, message) {
-  if (!channel || !message?.astr?.direction || message.astr.transcript_hash == null) return channel
-  const counters = { ...(channel.counters || {}) }
-  counters[message.astr.direction] = Math.max(Number(counters[message.astr.direction] || 0), Number(message.astr.counter || 0) + 1)
-  return {
-    ...channel,
-    transcript_hash: message.astr.transcript_hash,
-    counters,
+const NICKNAME_KEY = 'wff_friend_nicknames'
+
+function loadNicknames() {
+  try {
+    return JSON.parse(localStorage.getItem(NICKNAME_KEY) || '{}')
+  } catch (e) {
+    return {}
   }
+}
+
+function saveNicknames(value) {
+  localStorage.setItem(NICKNAME_KEY, JSON.stringify(value))
+}
+
+function displayNameFor(username, nicknames) {
+  return nicknames[username] || username
+}
+
+function messageExcerpt(message) {
+  const text = (message?.body || '').replace(/\s+/g, ' ').trim()
+  return text.length > 72 ? `${text.slice(0, 72)}...` : text
 }
 
 export default function Conversation() {
@@ -74,6 +85,14 @@ export default function Conversation() {
   const [sending, setSending] = useState(false)
   const [actionsOpen, setActionsOpen] = useState(false)
   const [closingAction, setClosingAction] = useState('')
+  const [nicknames, setNicknames] = useState(() => loadNicknames())
+  const [nicknameDraft, setNicknameDraft] = useState('')
+  const [replyTo, setReplyTo] = useState(null)
+  const scrollRef = useRef(null)
+  const bottomRef = useRef(null)
+
+  const otherUsername = conversation?.other_user?.username || ''
+  const otherDisplayName = useMemo(() => displayNameFor(otherUsername, nicknames), [otherUsername, nicknames])
 
   useEffect(() => {
     if (!user.username) {
@@ -104,48 +123,11 @@ export default function Conversation() {
     if (!lastRealtimeEvent || lastRealtimeEvent.type !== 'message_created') return
     const payload = lastRealtimeEvent.payload
     if (String(payload.conversation_id) !== String(conversationId) || !payload.message) return
-    setConversation((current) => {
-      if (!current) return current
-      const message = payload.message
-      const messages = current.messages || []
-      const existingIndex = messages.findIndex((item) =>
-        item.id === message.id || (message.client_nonce && item.client_nonce === message.client_nonce)
-      )
-      if (existingIndex >= 0) {
-        return {
-          ...current,
-          channel: advanceChannel(current.channel, message),
-          messages: messages.map((item, index) =>
-            index === existingIndex ? { ...message, sending_status: 'sent' } : item
-          ),
-        }
+    fetchConversation(conversationId).then((result) => {
+      if (result.success) {
+        setConversation(result.conversation)
+        setError('')
       }
-      return {
-        ...current,
-        channel: advanceChannel(current.channel, message),
-        messages: [...messages, { ...message, sending_status: 'sent' }],
-      }
-    })
-    setConversation((current) => {
-      if (!current) return current
-      const last = current.messages[current.messages.length - 1]
-      if (!last?.astr?.ciphertext || last.body) return current
-      decryptAstrMessage(current, user, last).then((decrypted) => {
-        if (decrypted.decrypt_failed) {
-          fetchConversation(conversationId).then((result) => {
-            if (result.success) {
-              setConversation(result.conversation)
-              setError('')
-            }
-          })
-          return
-        }
-        setConversation((latest) => latest ? {
-          ...latest,
-          messages: latest.messages.map((item) => item.id === last.id ? { ...decrypted, sending_status: 'sent' } : item),
-        } : latest)
-      })
-      return current
     })
   }, [lastRealtimeEvent, conversationId, fetchConversation, user])
 
@@ -169,15 +151,28 @@ export default function Conversation() {
     }
   }
 
+  const handleSaveNickname = () => {
+    if (!otherUsername) return
+    const next = { ...nicknames }
+    const clean = nicknameDraft.trim()
+    if (clean) next[otherUsername] = clean.slice(0, 40)
+    else delete next[otherUsername]
+    saveNicknames(next)
+    setNicknames(next)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     const trimmed = body.trim()
     if (!trimmed) return
+    const outgoingBody = replyTo
+      ? `Reply to ${replyTo.sender_username}: ${messageExcerpt(replyTo)}\n\n${trimmed}`
+      : trimmed
     const clientNonce = `${Date.now()}-${Math.random().toString(16).slice(2)}`
     const optimisticMessage = {
       id: `pending-${clientNonce}`,
       sender_username: user.username,
-      body: trimmed,
+      body: outgoingBody,
       created_at: new Date().toISOString(),
       is_mine: true,
       client_nonce: clientNonce,
@@ -188,22 +183,31 @@ export default function Conversation() {
       messages: [...(current?.messages || []), optimisticMessage],
     }))
     setBody('')
+    setReplyTo(null)
     setSending(true)
-    const result = await sendConversationMessage(conversationId, trimmed, clientNonce, {
+    const result = await sendConversationMessage(conversationId, outgoingBody, clientNonce, {
       ...conversation,
       messages: conversation?.messages || [],
     })
     setSending(false)
     if (result.success) {
-      setConversation((current) => ({
-        ...current,
-        channel: advanceChannel(current?.channel, result.message),
-        messages: (current?.messages || []).map((message) =>
-          message.client_nonce === clientNonce
-            ? { ...result.message, sending_status: 'sent' }
-            : message
-        ),
-      }))
+      if (result.conversation) {
+        setConversation({
+          ...result.conversation,
+          messages: (result.conversation.messages || []).map((message) =>
+            message.client_nonce === clientNonce ? { ...message, sending_status: 'sent' } : message
+          ),
+        })
+      } else {
+        setConversation((current) => ({
+          ...current,
+          messages: (current?.messages || []).map((message) =>
+            message.client_nonce === clientNonce
+              ? { ...result.message, sending_status: 'sent' }
+              : message
+          ),
+        }))
+      }
       setError('')
     } else {
       setConversation((current) => ({
@@ -218,6 +222,14 @@ export default function Conversation() {
     }
   }
 
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ block: 'end' })
+  }, [conversation?.messages?.length, conversation?.id])
+
+  useEffect(() => {
+    if (actionsOpen) setNicknameDraft(nicknames[otherUsername] || '')
+  }, [actionsOpen, nicknames, otherUsername])
+
   return (
     <div className="flex h-[100dvh] min-h-screen flex-col bg-dark-bg">
       <header className="app-header shrink-0">
@@ -228,7 +240,7 @@ export default function Conversation() {
             onClick={() => conversation && setActionsOpen(true)}
             disabled={!conversation}
             icon="menu"
-            label={conversation?.other_user?.username || 'Conversation'}
+            label={otherDisplayName || 'Conversation'}
             className="icon-button-primary"
           />
         </div>
@@ -236,12 +248,17 @@ export default function Conversation() {
 
       <main className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
         {error && <div className="mx-4 mt-4 border-l border-primary pl-3 text-sm text-red-400">{error}</div>}
+        {conversation?.transcript_verified === false && (
+          <div className="mx-4 mt-4 border-l border-primary pl-3 text-sm text-red-500">
+            Secure state warning: this conversation transcript could not be verified. {conversation.transcript_error || 'Refresh and try again.'}
+          </div>
+        )}
 
         {loading ? (
           <div className="flex flex-1 items-center justify-center text-gray-500">Loading...</div>
         ) : conversation ? (
           <>
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+            <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
               {conversation.messages.length === 0 ? (
                 <div className="flex h-full items-center justify-center text-sm text-gray-500">
                   No messages yet
@@ -260,13 +277,23 @@ export default function Conversation() {
                         </div>
                       )}
                       <div className={`flex ${message.is_mine ? 'justify-end' : 'justify-start'}`}>
-                        <div
+                        <button
+                          type="button"
+                          onClick={() => setReplyTo(message)}
                           className={`max-w-[78%] px-0 py-3 text-sm ${
                             message.is_mine
                               ? 'text-primary'
                               : 'text-gray-100'
-                          }`}
+                          } text-left`}
                         >
+                          {!message.is_mine && (
+                            <p className="mb-1 text-[11px] font-medium text-gray-500">
+                              {displayNameFor(message.sender_username, nicknames)}
+                              {nicknames[message.sender_username] && (
+                                <span className="ml-2 font-normal">{message.sender_username}</span>
+                              )}
+                            </p>
+                          )}
                           <p className="whitespace-pre-wrap break-words">{message.body}</p>
                           <div className={`mt-1 flex items-center justify-end gap-1 text-[11px] ${
                             message.is_mine ? 'text-white/75' : 'text-gray-500'
@@ -282,18 +309,29 @@ export default function Conversation() {
                                 : '✓'}
                             </span>
                           </div>
-                        </div>
+                        </button>
                       </div>
                     </div>
                   )
                 })
               )}
+              <div ref={bottomRef} />
             </div>
 
             <form
               onSubmit={handleSubmit}
               className="sticky bottom-0 flex shrink-0 gap-5 border-t border-dark-border bg-dark-bg/95 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur"
             >
+              {replyTo && (
+                <div className="absolute bottom-full left-4 right-4 border-t border-dark-border bg-dark-bg px-0 py-2 text-xs text-gray-500">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="min-w-0 truncate">
+                      Replying to {displayNameFor(replyTo.sender_username, nicknames)}: {messageExcerpt(replyTo)}
+                    </span>
+                    <button type="button" onClick={() => setReplyTo(null)} className="shrink-0 text-primary">Cancel</button>
+                  </div>
+                </div>
+              )}
               <input
                 type="text"
                 value={body}
@@ -326,8 +364,11 @@ export default function Conversation() {
               <div>
                 <p className="text-xs text-gray-500">Conversation</p>
                 <h2 className="break-words text-lg font-medium text-white">
-                  {conversation.other_user?.username}
+                  {otherDisplayName}
                 </h2>
+                {nicknames[otherUsername] && (
+                  <p className="mt-1 text-xs text-gray-500">{otherUsername}</p>
+                )}
               </div>
               <IconButton
                 type="button"
@@ -338,6 +379,22 @@ export default function Conversation() {
             </div>
 
             <div className="space-y-2">
+              <div className="border-t border-dark-border py-3">
+                <label className="block text-xs text-gray-500" htmlFor="friend-nickname">Nickname</label>
+                <div className="mt-2 flex items-center gap-3">
+                  <input
+                    id="friend-nickname"
+                    type="text"
+                    value={nicknameDraft}
+                    onChange={(e) => setNicknameDraft(e.target.value)}
+                    placeholder={otherUsername}
+                    className="min-w-0 flex-1 border-0 border-b px-0 py-2 text-sm focus:outline-none focus:border-primary"
+                  />
+                  <button type="button" onClick={handleSaveNickname} className="text-sm font-medium text-primary">
+                    Save nickname
+                  </button>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => handleConversationAction('delete')}

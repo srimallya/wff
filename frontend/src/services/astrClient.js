@@ -1,9 +1,15 @@
 import { API_BASE } from '../api'
+import {
+  ASTR_MESSAGE_VERSIONS,
+  ASTR_V2,
+  ASTR_V3,
+  ASTR_V4,
+  ZERO_TRANSCRIPT_HASH,
+  sha256Hex,
+  transcriptHash,
+  verifyAstrTranscript,
+} from './astrTranscript'
 
-const ASTR_V2 = 'astr-v2-client-aead'
-const ASTR_V3 = 'astr-v3-ratchet-aead'
-const ASTR_V4 = 'astr-v4-client-state-aead'
-const ZERO_TRANSCRIPT_HASH = 'a963b6e50f6e18cf00efbdbd0303644e82b0121b10092b623153b3d97259d7c5'
 const DB_NAME = 'wff-astr-v3'
 const KEY_STORE = 'identityKeys'
 const DEVICE_ID_KEY = 'wff_astr_device_id'
@@ -51,12 +57,6 @@ function concatBytes(...items) {
     offset += item.length
   })
   return out
-}
-
-async function sha256Hex(value) {
-  const bytes = typeof value === 'string' ? encoder.encode(value) : value
-  const digest = await crypto.subtle.digest('SHA-256', bytes)
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
 async function openDb() {
@@ -152,7 +152,7 @@ function lastTranscriptHash(messages) {
 
 function nextCounter(messages, direction) {
   return (messages || []).filter((message) =>
-    [ASTR_V2, ASTR_V3, ASTR_V4].includes(message.astr?.version) && message.astr?.direction === direction
+    ASTR_MESSAGE_VERSIONS.includes(message.astr?.version) && message.astr?.direction === direction
   ).length
 }
 
@@ -329,10 +329,15 @@ export async function createAstrPacket(conversation, user, plaintext) {
     uniqueTargets.push(target)
   })
   const direction = directionFor(conversation, user.id)
-  const counter = Number.isInteger(conversation.channel?.counters?.[direction])
+  if (conversation.transcript_verified === false) {
+    throw new AstrClientError('SECURE_STATE_MISMATCH', 'Local ASTR transcript is not verified')
+  }
+  const counter = Number.isInteger(conversation.verified_counters?.[direction])
+    ? conversation.verified_counters[direction]
+    : Number.isInteger(conversation.channel?.counters?.[direction])
     ? conversation.channel.counters[direction]
     : nextCounter(conversation.messages, direction)
-  const prevTranscriptHash = conversation.channel?.transcript_hash || lastTranscriptHash(conversation.messages)
+  const prevTranscriptHash = conversation.verified_transcript_hash || conversation.channel?.transcript_hash || lastTranscriptHash(conversation.messages)
   const root = await v3RootKey(conversation, user)
   const senderStateCommitment = packetRatchetString({
     sender_state_commitment: await hmacHex(root, `sender-state:${direction}:${counter}`),
@@ -368,11 +373,11 @@ export async function createAstrPacket(conversation, user, plaintext) {
     envelopes,
   })
   const authTag = await hmacHex(root, canonical(packet))
-  const transcriptHash = await sha256Hex(`${prevTranscriptHash}|${direction}|${counter}|${senderStateCommitment}|${packet.ciphertext}|${authTag}`)
+  const nextTranscriptHash = await transcriptHash(prevTranscriptHash, direction, counter, senderStateCommitment, packet.ciphertext, authTag)
   return {
     ...packet,
     auth_tag: authTag,
-    transcript_hash: transcriptHash,
+    transcript_hash: nextTranscriptHash,
   }
 }
 
@@ -480,23 +485,29 @@ async function decryptV2(conversation, message) {
 }
 
 export async function decryptAstrMessage(conversation, user, message) {
-  if (message.body || !message.astr?.ciphertext) return message
+  if (!message.astr?.ciphertext) return message
   try {
     if (message.astr.version === ASTR_V3) return await decryptV3(conversation, user, message)
     if (message.astr.version === ASTR_V4) return await decryptV4(conversation, user, message)
     if (message.astr.version === ASTR_V2) return await decryptV2(conversation, message)
     return message
   } catch (e) {
-    return { ...message, body: 'Message could not be opened', encrypted: true, decrypt_failed: true }
+    return { ...message, body: 'Message could not be verified', encrypted: true, decrypt_failed: true, verify_failed: true }
   }
 }
 
 export async function decryptConversation(conversation, user) {
   if (!conversation?.messages) return conversation
   await ensureKeyBundleRegistered(user)
-  const messages = []
-  for (const message of conversation.messages) {
-    messages.push(await decryptAstrMessage(conversation, user, message))
-  }
-  return { ...conversation, messages }
+  const verification = await verifyAstrTranscript(conversation, user, decryptAstrMessage)
+  return { ...conversation, ...verification }
+}
+
+export const __test__ = {
+  ASTR_V2,
+  ASTR_V3,
+  ASTR_V4,
+  ZERO_TRANSCRIPT_HASH,
+  transcriptHash,
+  verifyAstrTranscript,
 }
