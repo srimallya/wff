@@ -4,7 +4,9 @@ import {
   ASTR_V2,
   ASTR_V3,
   ASTR_V4,
+  ASTR_VERIFY_CODES,
   ZERO_TRANSCRIPT_HASH,
+  canUseStructuralSendState,
   sha256Hex,
   transcriptHash,
   verifyAstrTranscript,
@@ -177,6 +179,35 @@ function packetRatchetPayload(value) {
   return { ratchet_public_key: value }
 }
 
+function publicKeyMatches(left, right) {
+  if (!validDevicePublicKey(left) || !validDevicePublicKey(right)) return false
+  return canonical(left) === canonical(right)
+}
+
+function senderUserIdForMessage(conversation, message) {
+  if (message.astr?.direction === 'one_to_two') return conversation.participants?.one?.id
+  if (message.astr?.direction === 'two_to_one') return conversation.participants?.two?.id
+  return null
+}
+
+function bundlePublicKeys(bundle) {
+  const keys = []
+  if (validDevicePublicKey(bundle?.identity_public_key)) keys.push(bundle.identity_public_key)
+  if (validDevicePublicKey(bundle?.signed_prekey_public_key)) keys.push(bundle.signed_prekey_public_key)
+  ;(bundle?.devices || []).forEach((device) => {
+    if (validDevicePublicKey(device.identity_public_key)) keys.push(device.identity_public_key)
+    if (validDevicePublicKey(device.signed_prekey_public_key)) keys.push(device.signed_prekey_public_key)
+  })
+  return keys
+}
+
+function senderIdentityMatchesBundle(conversation, message, senderPublicKey) {
+  const senderId = senderUserIdForMessage(conversation, message)
+  if (!senderId || !validDevicePublicKey(senderPublicKey)) return false
+  const expectedKeys = bundlePublicKeys(conversation.key_bundles?.[String(senderId)])
+  return expectedKeys.some((expectedKey) => publicKeyMatches(expectedKey, senderPublicKey))
+}
+
 function packetStateCommitment(message) {
   return message.astr?.sender_state_commitment || message.astr?.ratchet_public_key || ''
 }
@@ -329,7 +360,7 @@ export async function createAstrPacket(conversation, user, plaintext) {
     uniqueTargets.push(target)
   })
   const direction = directionFor(conversation, user.id)
-  const canUseStructuralState = conversation.transcript_verified === false && conversation.transcript_error === 'decrypt-failed'
+  const canUseStructuralState = canUseStructuralSendState(conversation)
   if (conversation.transcript_verified === false && !canUseStructuralState) {
     throw new AstrClientError('SECURE_STATE_MISMATCH', 'Local ASTR transcript is not verified')
   }
@@ -433,6 +464,9 @@ async function decryptV4(conversation, user, message) {
   const senderStateCommitment = packetStateCommitment(message)
   const statePayload = packetRatchetPayload(senderStateCommitment)
   const senderPublicKey = statePayload.sender_identity_public_key
+  if (!message.is_mine && !senderIdentityMatchesBundle(conversation, message, senderPublicKey)) {
+    throw new AstrClientError('IDENTITY_KEY_MISMATCH', 'Sender identity key does not match the registered bundle')
+  }
   const packet = {
     version: message.astr.version,
     channel_hint: `conversation:${conversation.id}`,
@@ -497,7 +531,20 @@ export async function decryptAstrMessage(conversation, user, message) {
     if (message.astr.version === ASTR_V2) return await decryptV2(conversation, message)
     return message
   } catch (e) {
-    return { ...message, body: 'Message could not be verified', encrypted: true, decrypt_failed: true, verify_failed: true }
+    const code = e instanceof AstrClientError && e.code === 'DEVICE_ENVELOPE_MISSING'
+      ? ASTR_VERIFY_CODES.DEVICE_ENVELOPE_MISSING
+      : e instanceof AstrClientError && e.code === 'IDENTITY_KEY_MISMATCH'
+      ? ASTR_VERIFY_CODES.IDENTITY_KEY_MISMATCH
+      : ASTR_VERIFY_CODES.DECRYPT_FAILED
+    return {
+      ...message,
+      body: 'Message could not be verified',
+      encrypted: true,
+      decrypt_failed: true,
+      verify_failed: true,
+      decrypt_error: code,
+      verify_error: code,
+    }
   }
 }
 
@@ -513,6 +560,8 @@ export const __test__ = {
   ASTR_V3,
   ASTR_V4,
   ZERO_TRANSCRIPT_HASH,
+  canUseStructuralSendState,
+  senderIdentityMatchesBundle,
   transcriptHash,
   verifyAstrTranscript,
 }

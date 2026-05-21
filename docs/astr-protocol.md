@@ -54,12 +54,14 @@ This commitment is structural and transcript-bound. It does not prove to the ser
 
 - Generate ASTR packets locally.
 - Encrypt private message content before sending.
-- Recompute transcript state from accepted message history.
-- Verify previous transcript hash, direction, counter, transcript hash, AEAD associated data, and decryptability before displaying plaintext as normal.
+- Recompute transcript state from loaded accepted message history.
+- Verify previous transcript hash, direction, counter, transcript hash, packet commitment fields, AEAD associated data, sender identity commitment where available, and decryptability before displaying plaintext as normal.
 - Refuse silent plaintext downgrade.
 - Preserve compatibility reads for older stored packets.
 
-Client-owned transcript verification is the next protocol milestone and must become the display authority.
+Client-owned transcript verification is partially implemented. The frontend now recomputes the ASTR transcript on conversation load, separates transcript failure codes, pins incoming v4 sender identity commitments against the registered key bundle, and refuses to send from a generic decrypt-failed state. A missing device envelope may advance structural transcript state only when the packet hash is otherwise valid, because that case means the current device was not an intended recipient of that envelope.
+
+Durable local ASTR state is still pending. The current implementation recomputes from the loaded server message list instead of persisting a client-owned state object in IndexedDB.
 
 ## Server Responsibilities
 
@@ -75,6 +77,7 @@ Client-owned transcript verification is the next protocol milestone and must bec
 - No claim of complete Double Ratchet state.
 - No real X3DH-style session setup yet.
 - No real signed prekeys or one-time prekeys yet.
+- No true durable per-device ASTR session state yet.
 - No skipped-message-key cache yet.
 - No identity verification UX yet.
 - No social graph hiding yet.

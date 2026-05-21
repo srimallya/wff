@@ -108,7 +108,7 @@ export const useStore = create((set, get) => ({
         set((state) => ({
           messagesHome: {
             ...state.messagesHome,
-            threads: uniqueById([thread, ...state.messagesHome.threads.filter((item) => item.id !== thread.id)]),
+            threads: uniqueById([thread, ...state.messagesHome.threads.filter((item) => String(item.id) !== String(thread.id))]),
           },
         }))
       }
@@ -602,6 +602,7 @@ export const useStore = create((set, get) => ({
         const decrypted = sendConversation
           ? await decryptConversation({ ...sendConversation, messages: [...(sendConversation.messages || []), d.message] }, user)
           : { messages: [d.message] }
+        await get().fetchMessagesHome()
         return { success: true, message: decrypted.messages[decrypted.messages.length - 1], conversation: decrypted }
       }
       return { success: false, error: d.error || 'Message could not be sent' }
