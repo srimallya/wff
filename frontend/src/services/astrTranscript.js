@@ -3,7 +3,7 @@ const encoder = new TextEncoder()
 export const ASTR_V2 = 'astr-v2-client-aead'
 export const ASTR_V3 = 'astr-v3-ratchet-aead'
 export const ASTR_V4 = 'astr-v4-client-state-aead'
-export const ZERO_TRANSCRIPT_HASH = 'a963b6e50f6e18cf00efbdbd0303644e82b0121b10092b623153b3d97259d7c5'
+export const ZERO_TRANSCRIPT_HASH = 'a9b67b214594b7027c98a410424f12a978d2c8bac051886411180aae6ec1deea'
 export const ASTR_MESSAGE_VERSIONS = [ASTR_V2, ASTR_V3, ASTR_V4]
 
 export async function sha256Hex(value) {
