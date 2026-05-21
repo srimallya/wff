@@ -1,13 +1,16 @@
 # Changelog
 
-## v1.1.0
+## v1.2.0
 
-World Foresight Forum is currently treated as v1.1. This release establishes the global English WFF product, hardens private messaging, and moves the interface toward the Swiss design direction.
+World Foresight Forum is currently treated as v1.2. This release establishes the global English WFF product, hardens private messaging, moves the interface toward the Swiss design direction, fixes production posting, adds internal graph infrastructure for ranking, and improves PWA/social identity.
 
 ### Product And UI
 
 - Rebranded the application as World Foresight Forum.
 - Deployed under `https://thetrustcommons.com/wff/`.
+- Changed the PWA app name to `wff`.
+- Replaced app icons with the black `W` wordmark.
+- Added PNG PWA icons and a refreshed social preview image.
 - Added country tagging for posts, including a `Global` option.
 - Added dedicated post pages with Reddit-style comment threads.
 - Added upvotes and downvotes for both posts and comments.
@@ -16,6 +19,8 @@ World Foresight Forum is currently treated as v1.1. This release establishes the
 - Removed visible SVG button icons from the main UI.
 - Added a searchable country input in the post composer.
 - Added typable, auto-formatted birthdate entry in account creation.
+- Replaced authenticated landing actions with a single `Enter` action.
+- Fixed account drawer layering and scrolling so Support remains reachable.
 
 ### Messaging And Realtime
 
@@ -40,18 +45,20 @@ World Foresight Forum is currently treated as v1.1. This release establishes the
 - New private messages are stored as opaque encrypted packets with empty plaintext body.
 - Older ASTR v2 messages remain readable through the v2 decrypt path.
 
-### Security Status
+### ASTR Roadmap Status
 
-- ASTR v3 is meaningful hardening, but it is not Signal-equivalent and should not be marketed as stronger than Signal.
+- ASTR v3 is WFF's encrypted packet and conversation-state system for private one-to-one messages.
 - The server stores public key bundles and encrypted packet metadata, not private key material.
-- Remaining security work includes externally reviewed X3DH-style key agreement, signed prekey verification, true rotating DH ratchet keys, bounded skipped-message-key queues, identity-change UX, multi-device session sync, and external cryptographic review.
+- Remaining protocol work includes externally reviewed X3DH-style key agreement, signed prekey verification, one-time prekeys, true rotating DH ratchet keys, bounded skipped-message-key queues, identity-change UX, multi-device session sync, and external cryptographic review.
 
 ### Recommendations Roadmap
 
-- Defined v1.1 recommendation-system goals in `goal.md`.
-- Planned explainable ranking modes: `Recent`, `Important`, and `Relevant`.
-- Planned ranking inputs from country, target year, text embedding, votes, comments, policy category, and search context.
-- Recommendation ranking must remain public-interest oriented and inspectable, not engagement-maximizing.
+- Cloned and reviewed `twitter/the-algorithm` for ranking architecture lessons.
+- Removed the user-facing graph map from Profile.
+- Added an internal recommendation graph builder for future ranking features.
+- Defined v1.3 full recommendation and ranking goals in `goal.md`.
+- Planned ranking inputs from relational graph edges, country, target year, text embedding, votes, comments, policy category, search context, and future user-action events.
+- Recommendation ranking must remain public-interest oriented, inspectable, and non-addictive.
 
 ### Production
 

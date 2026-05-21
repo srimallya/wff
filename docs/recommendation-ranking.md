@@ -66,7 +66,7 @@ Hydrate each candidate post with:
 - Diversity metadata: author, country, year bucket, and semantic cluster.
 - Safety/trust: hidden/deleted users, abusive content flags when available, self-spam signals.
 
-## Ranking Formula For V1.1
+## Ranking Formula For V1.3
 
 Use a transparent weighted score before training any ML model:
 
@@ -92,7 +92,7 @@ Then apply serving rules:
 - Remove posts the reader already opened, commented on, or downvoted unless explicitly searching.
 - Prefer public-policy relevance over generic social chatter.
 
-## Ranking Formula For V1.2+
+## Learned Ranking After V1.3
 
 After enough events exist, train a small model to predict:
 

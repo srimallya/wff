@@ -4,7 +4,7 @@ A global public foresight and policy forum for possible futures.
 
 People write time-capsule posts about the futures they think are coming, attach a target year and country, then read, search, vote, and discuss the public forecasts other people are willing to name.
 
-Current product version: `v1.1`
+Current product version: `v1.2`
 
 Production path: `https://thetrustcommons.com/wff/`
 
@@ -25,7 +25,7 @@ Production path: `https://thetrustcommons.com/wff/`
 
 WFF includes an application-specific private messaging protocol called ASTR. In this app, ASTR is used for accepted one-to-one private conversations. It is separate from the public forum, public comments, message requests, and the registered-user chatroom.
 
-ASTR should be understood as a state-transition and packet-validation layer for WFF private messages. It is not a claim of Signal-equivalent security, and it should not be marketed as stronger than Signal. The current implementation is meaningful hardening over plaintext private-message storage, but the remaining cryptographic work is documented below.
+ASTR should be understood as WFF's state-transition and packet-validation layer for private messages. Its contribution is the combination of browser-held identity material, encrypted packet storage, transcript commitment, and server-side validation of message ordering without giving the server plaintext access.
 
 ### What Exists Now
 
@@ -83,9 +83,9 @@ The browser derives message keys from ECDH material and conversation context. AS
 
 The local client code also keeps a compatibility decrypt path for older ASTR v2 messages.
 
-### What ASTR Is Not Yet
+### ASTR Roadmap
 
-ASTR v3 is not yet a full audited Signal Double Ratchet implementation. Important remaining gaps include:
+Important remaining protocol work includes:
 
 - externally reviewed X3DH-style initial key agreement;
 - real signed-prekey verification;
@@ -94,9 +94,11 @@ ASTR v3 is not yet a full audited Signal Double Ratchet implementation. Importan
 - bounded skipped-message-key storage for out-of-order messages;
 - explicit identity-change warnings and safety-number UX;
 - robust multi-device session synchronization;
+- session reset and recovery flows;
+- packet-level replay/reorder tests;
 - external cryptographic review.
 
-Until those are implemented and reviewed, describe ASTR as WFF's encrypted packet and conversation-state system, not as Signal-grade security.
+Until those are implemented and reviewed, describe ASTR precisely as WFF's encrypted packet and conversation-state system.
 
 ### Chatroom Boundary
 
@@ -104,15 +106,17 @@ The registered-user chatroom is not ASTR private messaging. It is a shared room 
 
 ## Recommendations Roadmap
 
-WFF v1.1 work now targets an explainable recommendation system. The goal is to help readers discover useful foresight by country, year, topic, semantic relevance, votes, and discussion activity without creating an engagement-maximizing feed.
+WFF v1.3 targets the full first-generation recommendation and ranking system. The goal is to help readers discover useful foresight by country, year, topic, semantic relevance, relational graph context, votes, and discussion activity without creating an engagement-maximizing feed.
 
 Planned ranking modes:
 
 - `Recent`: newest posts first.
 - `Important`: posts with stronger vote/comment and policy signals.
-- `Relevant`: posts matching the selected search, country, year, or topic context.
+- `Relevant`: posts matching selected search, country, year, graph, or topic context.
 
-See [goal.md](goal.md) for the v1.1 recommendation plan.
+The relational graph is internal infrastructure for recommendation and ranking, not a user-facing Profile page.
+
+See [goal.md](goal.md) for the v1.3 recommendation and ASTR completion plan.
 
 ## Local Development
 
