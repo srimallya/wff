@@ -329,15 +329,20 @@ export async function createAstrPacket(conversation, user, plaintext) {
     uniqueTargets.push(target)
   })
   const direction = directionFor(conversation, user.id)
-  if (conversation.transcript_verified === false) {
+  const canUseStructuralState = conversation.transcript_verified === false && conversation.transcript_error === 'decrypt-failed'
+  if (conversation.transcript_verified === false && !canUseStructuralState) {
     throw new AstrClientError('SECURE_STATE_MISMATCH', 'Local ASTR transcript is not verified')
   }
-  const counter = Number.isInteger(conversation.verified_counters?.[direction])
+  const sendCounters = canUseStructuralState ? conversation.structural_counters : conversation.verified_counters
+  const sendTranscriptHash = canUseStructuralState ? conversation.structural_transcript_hash : conversation.verified_transcript_hash
+  const counter = Number.isInteger(sendCounters?.[direction])
+    ? sendCounters[direction]
+    : Number.isInteger(conversation.verified_counters?.[direction])
     ? conversation.verified_counters[direction]
     : Number.isInteger(conversation.channel?.counters?.[direction])
     ? conversation.channel.counters[direction]
     : nextCounter(conversation.messages, direction)
-  const prevTranscriptHash = conversation.verified_transcript_hash || conversation.channel?.transcript_hash || lastTranscriptHash(conversation.messages)
+  const prevTranscriptHash = sendTranscriptHash || conversation.verified_transcript_hash || conversation.channel?.transcript_hash || lastTranscriptHash(conversation.messages)
   const root = await v3RootKey(conversation, user)
   const senderStateCommitment = packetRatchetString({
     sender_state_commitment: await hmacHex(root, `sender-state:${direction}:${counter}`),

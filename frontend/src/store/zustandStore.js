@@ -571,6 +571,10 @@ export const useStore = create((set, get) => ({
       let astrPacket = null
       if (sendConversation) {
         try {
+          const params = new URLSearchParams({ username: user.username })
+          const refreshRes = await fetch(`${API_BASE}/messages/threads/${conversationId}?${params.toString()}`)
+          const refreshData = await refreshRes.json()
+          if (refreshRes.ok) sendConversation = await decryptConversation(refreshData.conversation, user)
           astrPacket = await createAstrPacket(sendConversation, user, body)
         } catch (e) {
           if (e?.code !== 'REMOTE_KEY_MISSING') throw e

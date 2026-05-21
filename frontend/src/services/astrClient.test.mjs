@@ -90,6 +90,8 @@ async function run() {
     assert.equal(result.transcript_error, 'decrypt-failed')
     assert.equal(result.messages[1].decrypt_failed, true)
     assert.equal(result.verified_transcript_hash, first.astr.transcript_hash)
+    assert.equal(result.structural_transcript_hash, tampered.astr.transcript_hash)
+    assert.equal(result.structural_counters.one_to_two, 2)
   }
 
   {
@@ -120,9 +122,11 @@ async function run() {
     const result = await verifyAstrTranscript(conversationWith([failing, replacement]), { id: 1 }, decryptFailsOnTamper)
     assert.equal(result.transcript_verified, false)
     assert.equal(result.transcript_error, 'decrypt-failed')
-    assert.equal(result.messages[1].body, 'plain-0')
-    assert.equal(result.verified_transcript_hash, replacement.astr.transcript_hash)
-    assert.equal(result.verified_counters.one_to_two, 1)
+    assert.equal(result.messages[1].verify_error, 'wrong-counter')
+    assert.equal(result.verified_transcript_hash, ZERO_TRANSCRIPT_HASH)
+    assert.equal(result.verified_counters.one_to_two, 0)
+    assert.equal(result.structural_transcript_hash, failing.astr.transcript_hash)
+    assert.equal(result.structural_counters.one_to_two, 1)
   }
 }
 

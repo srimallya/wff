@@ -36,9 +36,11 @@ function failedVerifiedMessage(message, transcriptHashValue, code, decryptFailed
 }
 
 export async function verifyAstrTranscript(conversation, user, decryptMessage) {
-  const counters = { one_to_two: 0, two_to_one: 0 }
+  const verifiedCounters = { one_to_two: 0, two_to_one: 0 }
+  const structuralCounters = { one_to_two: 0, two_to_one: 0 }
   const seenPackets = new Set()
-  let localTranscriptHash = ZERO_TRANSCRIPT_HASH
+  let verifiedTranscriptHash = ZERO_TRANSCRIPT_HASH
+  let structuralTranscriptHash = ZERO_TRANSCRIPT_HASH
   let transcriptVerified = true
   let transcriptError = null
   const messages = []
@@ -53,7 +55,7 @@ export async function verifyAstrTranscript(conversation, user, decryptMessage) {
     const fail = (code, decryptFailed = false) => {
       if (!transcriptError) transcriptError = code
       transcriptVerified = false
-      messages.push(failedVerifiedMessage(message, localTranscriptHash, code, decryptFailed))
+      messages.push(failedVerifiedMessage(message, verifiedTranscriptHash, code, decryptFailed))
     }
 
     if (!ASTR_MESSAGE_VERSIONS.includes(astr.version)) {
@@ -66,11 +68,11 @@ export async function verifyAstrTranscript(conversation, user, decryptMessage) {
     }
 
     const counter = Number(astr.counter)
-    if (!Number.isInteger(counter) || counter !== counters[astr.direction]) {
+    if (!Number.isInteger(counter) || counter !== structuralCounters[astr.direction]) {
       fail('wrong-counter')
       continue
     }
-    if (astr.prev_transcript_hash !== localTranscriptHash) {
+    if (astr.prev_transcript_hash !== structuralTranscriptHash) {
       fail('wrong-previous-transcript')
       continue
     }
@@ -92,7 +94,7 @@ export async function verifyAstrTranscript(conversation, user, decryptMessage) {
     }
 
     const expectedHash = await transcriptHash(
-      localTranscriptHash,
+      structuralTranscriptHash,
       astr.direction,
       counter,
       stateCommitment,
@@ -108,28 +110,38 @@ export async function verifyAstrTranscript(conversation, user, decryptMessage) {
     try {
       decrypted = await decryptMessage(conversation, user, message)
     } catch (e) {
+      structuralTranscriptHash = expectedHash
+      structuralCounters[astr.direction] = counter + 1
+      seenPackets.add(packetKey)
       fail('decrypt-failed', true)
       continue
     }
     if (decrypted.decrypt_failed || decrypted.verify_failed) {
+      structuralTranscriptHash = expectedHash
+      structuralCounters[astr.direction] = counter + 1
+      seenPackets.add(packetKey)
       fail('decrypt-failed', true)
       continue
     }
 
-    localTranscriptHash = expectedHash
-    counters[astr.direction] = counter + 1
+    structuralTranscriptHash = expectedHash
+    structuralCounters[astr.direction] = counter + 1
+    verifiedTranscriptHash = expectedHash
+    verifiedCounters[astr.direction] = counter + 1
     seenPackets.add(packetKey)
     messages.push({
       ...decrypted,
       verify_failed: false,
-      verified_transcript_hash: localTranscriptHash,
+      verified_transcript_hash: verifiedTranscriptHash,
     })
   }
 
   return {
     messages,
-    verified_transcript_hash: localTranscriptHash,
-    verified_counters: counters,
+    verified_transcript_hash: verifiedTranscriptHash,
+    verified_counters: verifiedCounters,
+    structural_transcript_hash: structuralTranscriptHash,
+    structural_counters: structuralCounters,
     transcript_verified: transcriptVerified,
     transcript_error: transcriptError,
   }
