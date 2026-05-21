@@ -28,7 +28,7 @@ function kolkataDateParts(date) {
 function formatMessageTime(value) {
   const date = parseAppTimestamp(value)
   if (!date) return ''
-  return date.toLocaleTimeString('bn-BD', { timeZone: APP_TIME_ZONE, hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleTimeString('en-US', { timeZone: APP_TIME_ZONE, hour: 'numeric', minute: '2-digit' })
 }
 
 function dateBucket(value) {
@@ -166,7 +166,7 @@ export default function Conversation() {
     const trimmed = body.trim()
     if (!trimmed) return
     const outgoingBody = replyTo
-      ? `Reply to ${replyTo.sender_username}: ${messageExcerpt(replyTo)}\n\n${trimmed}`
+      ? `Reply to ${messageExcerpt(replyTo)}\n\n${trimmed}`
       : trimmed
     const clientNonce = `${Date.now()}-${Math.random().toString(16).slice(2)}`
     const optimisticMessage = {
@@ -324,7 +324,7 @@ export default function Conversation() {
                 <div className="absolute bottom-full left-4 right-4 border-t border-dark-border bg-dark-bg px-0 py-2 text-xs text-gray-500">
                   <div className="flex items-center justify-between gap-3">
                     <span className="min-w-0 truncate">
-                      Replying to {displayNameFor(replyTo.sender_username, nicknames)}: {messageExcerpt(replyTo)}
+                      Replying to {messageExcerpt(replyTo)}
                     </span>
                     <button type="button" onClick={() => setReplyTo(null)} className="shrink-0 text-primary">Cancel</button>
                   </div>
