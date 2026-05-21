@@ -74,6 +74,10 @@ function messageExcerpt(message) {
   return text.length > 72 ? `${text.slice(0, 72)}...` : text
 }
 
+function displayMessageBody(body) {
+  return (body || '').replace(/^Reply to\s+[^:\n]+:\s*/i, 'Reply to: ')
+}
+
 export default function Conversation() {
   const { conversationId } = useParams()
   const navigate = useNavigate()
@@ -166,7 +170,7 @@ export default function Conversation() {
     const trimmed = body.trim()
     if (!trimmed) return
     const outgoingBody = replyTo
-      ? `Reply to ${messageExcerpt(replyTo)}\n\n${trimmed}`
+      ? `Reply to: ${messageExcerpt(replyTo)}\n\n${trimmed}`
       : trimmed
     const clientNonce = `${Date.now()}-${Math.random().toString(16).slice(2)}`
     const optimisticMessage = {
@@ -294,7 +298,7 @@ export default function Conversation() {
                               )}
                             </p>
                           )}
-                          <p className="whitespace-pre-wrap break-words">{message.body}</p>
+                          <p className="whitespace-pre-wrap break-words">{displayMessageBody(message.body)}</p>
                           <div className="mt-1 flex items-center justify-end gap-1 text-[11px] text-gray-500">
                             <span>{formatMessageTime(message.created_at)}</span>
                             <span aria-label={message.is_mine ? 'Read' : 'Received'}>
