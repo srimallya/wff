@@ -4,7 +4,6 @@ import { useStore } from '../store/zustandStore'
 import EssayCard from '../components/EssayCard'
 import Chatroom from '../components/Chatroom'
 import MessageHub from '../components/MessageHub'
-import NetworkMap from '../components/NetworkMap'
 import { Icon, IconButton } from '../components/Icons'
 import BottomNav from '../components/BottomNav'
 
@@ -367,16 +366,13 @@ export default function Profile() {
               <button type="button" onClick={() => setActiveView('essays')} className={`swiss-tab ${activeView === 'essays' ? 'swiss-tab-active' : ''}`}>
                 My posts
               </button>
-              <button type="button" onClick={() => setActiveView('map')} className={`swiss-tab ${activeView === 'map' ? 'swiss-tab-active' : ''}`}>
-                Map
-              </button>
             </div>
 
             {activeView === 'messages' ? (
               <MessageHub showTitle={false} panel="all" />
             ) : activeView === 'chatroom' ? (
               <Chatroom />
-            ) : activeView === 'essays' ? (
+            ) : (
               <div className="space-y-4">
                 {essaysLoading ? (
                   <div className="text-center py-8 text-gray-500">Loading...</div>
@@ -393,8 +389,6 @@ export default function Profile() {
                   </div>
                 )}
               </div>
-            ) : (
-              <NetworkMap />
             )}
           </>
         ) : (
