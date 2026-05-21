@@ -34,7 +34,7 @@ Generate candidates from:
 - fresh global posts;
 - posts from countries the reader has written about, searched, commented on, or upvoted;
 - posts near years or future horizons the reader has interacted with;
-- posts from connected users or users with nearby graph behavior;
+- posts from users with nearby public graph behavior;
 - posts engaged by users with similar country/year/topic patterns;
 - semantic matches to posts the reader wrote, searched, upvoted, or commented on;
 - exploration candidates from underrepresented countries, years, and policy areas.
@@ -49,7 +49,7 @@ Use `backend/services/recommendation_graph.py` as the internal graph source. The
 - `comment -> comment`: replied_to;
 - `post -> country`: country;
 - `post -> year`: target_year;
-- `user -> user`: connected by accepted message request or conversation;
+- `user -> user`: public interaction similarity only, unless accepted conversation graph use is explicitly privacy-reviewed later;
 - `user -> post`: upvoted or downvoted;
 - `user -> comment`: upvoted or downvoted.
 
@@ -68,7 +68,7 @@ Use signals already present in the app:
 - comment count and reply depth;
 - author account status;
 - recency and recent discussion activity;
-- accepted message/conversation relationships;
+- public interaction graph context;
 - whether the reader is browsing a specific year, country, or search query.
 
 Add new user-action events:
@@ -197,15 +197,21 @@ The recommendation system must not:
 - create infinite-scroll addiction mechanics;
 - make unexplained political or country-based boosts;
 - use opaque ranking that cannot be inspected;
-- expose private messaging content to ranking;
+- use private messaging plaintext or ciphertext for ranking;
+- use accepted private conversation relationships for ranking unless that use is explicitly documented, privacy-reviewed, and optional;
 - expose the internal graph as a public profile feature.
 
 ## ASTR v1.3 Protocol Work
 
-ASTR should continue as WFF's application-specific encrypted packet and conversation-state system. The v1.3 goal is to close the known protocol gaps enough to make the contribution coherent, reviewable, and accurately documented.
+ASTR means Authenticated State-Transition Ratchet. ASTR should continue as WFF's application-specific encrypted packet and conversation-state system. The v1.3 goal is to close the known protocol gaps enough to make the contribution coherent, reviewable, and accurately documented.
+
+The current v1.2 boundary is honest but incomplete: new private messages must be ASTR packets, plaintext fallback is blocked, and v4 names the packet commitment as `sender_state_commitment` rather than pretending it is a DH ratchet public key. The server still performs structural delivery checks and still advances advisory channel state. v1.3 should move cryptographic authority to the clients.
 
 Pending ASTR work:
 
+- client-side transcript recomputation from message history;
+- local IndexedDB ASTR state per conversation and device;
+- visible secure-state mismatch handling when local and server transcript views disagree;
 - externally reviewed X3DH-style initial key agreement;
 - signed-prekey verification instead of placeholder signature fields;
 - one-time prekeys for stronger asynchronous session setup;
@@ -216,7 +222,18 @@ Pending ASTR work:
 - robust multi-device session synchronization;
 - session reset and recovery flows;
 - packet-level replay/reorder tests;
+- privacy hardening for routing and graph metadata;
 - external cryptographic review of the protocol and implementation.
+
+Implementation milestones:
+
+1. Move transcript authority to clients and display only locally verified/decrypted private messages.
+2. Add real signed prekeys and one-time prekeys.
+3. Implement true per-device Double Ratchet state with skipped-message-key cache.
+4. Add multi-device correctness.
+5. Add identity verification UX and identity-change warnings.
+6. Minimize server cryptographic authority to structural delivery checks.
+7. Continue privacy hardening without claiming graph hiding.
 
 Documentation should focus on ASTR's contribution:
 

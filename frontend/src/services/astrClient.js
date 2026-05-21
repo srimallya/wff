@@ -2,11 +2,13 @@ import { API_BASE } from '../api'
 
 const ASTR_V2 = 'astr-v2-client-aead'
 const ASTR_V3 = 'astr-v3-ratchet-aead'
+const ASTR_V4 = 'astr-v4-client-state-aead'
 const ZERO_TRANSCRIPT_HASH = 'a963b6e50f6e18cf00efbdbd0303644e82b0121b10092b623153b3d97259d7c5'
 const DB_NAME = 'wff-astr-v3'
 const KEY_STORE = 'identityKeys'
 const DEVICE_ID_KEY = 'wff_astr_device_id'
 const ENVELOPE_CIPHERTEXT_TYPE = 'astr-v3-device-envelopes'
+const ENVELOPE_CIPHERTEXT_TYPE_V4 = 'astr-v4-device-envelopes'
 
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
@@ -150,7 +152,7 @@ function lastTranscriptHash(messages) {
 
 function nextCounter(messages, direction) {
   return (messages || []).filter((message) =>
-    [ASTR_V2, ASTR_V3].includes(message.astr?.version) && message.astr?.direction === direction
+    [ASTR_V2, ASTR_V3, ASTR_V4].includes(message.astr?.version) && message.astr?.direction === direction
   ).length
 }
 
@@ -173,6 +175,10 @@ function packetRatchetPayload(value) {
     // Older packets stored the ratchet key as a plain string.
   }
   return { ratchet_public_key: value }
+}
+
+function packetStateCommitment(message) {
+  return message.astr?.sender_state_commitment || message.astr?.ratchet_public_key || ''
 }
 
 function packetRatchetString(payload) {
@@ -261,6 +267,19 @@ function associatedDataV3(packet) {
   }))
 }
 
+function associatedDataV4(packet) {
+  return encoder.encode(canonical({
+    channel_hint: packet.channel_hint,
+    counter: packet.counter,
+    direction: packet.direction,
+    epoch: packet.epoch,
+    prev_transcript_hash: packet.prev_transcript_hash,
+    previous_chain_length: packet.previous_chain_length,
+    sender_state_commitment: packet.sender_state_commitment,
+    version: packet.version,
+  }))
+}
+
 function associatedDataV2(direction, counter, prevTranscriptHash) {
   return encoder.encode(canonical({
     counter,
@@ -315,18 +334,18 @@ export async function createAstrPacket(conversation, user, plaintext) {
     : nextCounter(conversation.messages, direction)
   const prevTranscriptHash = conversation.channel?.transcript_hash || lastTranscriptHash(conversation.messages)
   const root = await v3RootKey(conversation, user)
-  const ratchetPublicKey = packetRatchetString({
-    ratchet_public_key: await hmacHex(root, `ratchet-public:${direction}:${counter}`),
+  const senderStateCommitment = packetRatchetString({
+    sender_state_commitment: await hmacHex(root, `sender-state:${direction}:${counter}`),
     sender_identity_public_key: publicJwk,
   })
   const packet = {
-    version: ASTR_V3,
+    version: ASTR_V4,
     channel_hint: `conversation:${conversation.id}`,
     epoch: conversation.channel?.epoch || 1,
     direction,
     counter,
     previous_chain_length: conversation.channel?.previous_chain_lengths?.[direction] || 0,
-    ratchet_public_key: ratchetPublicKey,
+    sender_state_commitment: senderStateCommitment,
     prev_transcript_hash: prevTranscriptHash,
   }
   const envelopes = []
@@ -334,7 +353,7 @@ export async function createAstrPacket(conversation, user, plaintext) {
     const nonce = crypto.getRandomValues(new Uint8Array(12))
     const messageKey = await v3MessageKeyForPublicKey(conversation, user, direction, counter, target.public_key)
     const encrypted = new Uint8Array(await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv: nonce, additionalData: associatedDataV3(packet) },
+      { name: 'AES-GCM', iv: nonce, additionalData: associatedDataV4(packet) },
       await aesKeyFromBytes(messageKey),
       encoder.encode(plaintext)
     ))
@@ -345,11 +364,11 @@ export async function createAstrPacket(conversation, user, plaintext) {
     })
   }
   packet.ciphertext = JSON.stringify({
-    type: ENVELOPE_CIPHERTEXT_TYPE,
+    type: ENVELOPE_CIPHERTEXT_TYPE_V4,
     envelopes,
   })
   const authTag = await hmacHex(root, canonical(packet))
-  const transcriptHash = await sha256Hex(`${prevTranscriptHash}|${direction}|${counter}|${ratchetPublicKey}|${packet.ciphertext}|${authTag}`)
+  const transcriptHash = await sha256Hex(`${prevTranscriptHash}|${direction}|${counter}|${senderStateCommitment}|${packet.ciphertext}|${authTag}`)
   return {
     ...packet,
     auth_tag: authTag,
@@ -374,7 +393,7 @@ async function decryptV3(conversation, user, message) {
   let envelopeMode = false
   try {
     const parsed = JSON.parse(message.astr.ciphertext)
-    if (parsed?.type === ENVELOPE_CIPHERTEXT_TYPE && Array.isArray(parsed.envelopes)) {
+    if ([ENVELOPE_CIPHERTEXT_TYPE, ENVELOPE_CIPHERTEXT_TYPE_V4].includes(parsed?.type) && Array.isArray(parsed.envelopes)) {
       envelopeMode = true
       const deviceId = currentDeviceId()
       const envelope = parsed.envelopes.find((item) =>
@@ -394,6 +413,50 @@ async function decryptV3(conversation, user, message) {
     : await v3MessageKey(conversation, user, message.astr.direction, message.astr.counter, message.is_mine ? null : senderPublicKey)
   const plaintext = await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: nonce, additionalData: associatedDataV3(packet) },
+    await aesKeyFromBytes(messageKey),
+    ciphertext
+  )
+  return { ...message, body: decoder.decode(plaintext), encrypted: true }
+}
+
+async function decryptV4(conversation, user, message) {
+  const senderStateCommitment = packetStateCommitment(message)
+  const statePayload = packetRatchetPayload(senderStateCommitment)
+  const senderPublicKey = statePayload.sender_identity_public_key
+  const packet = {
+    version: message.astr.version,
+    channel_hint: `conversation:${conversation.id}`,
+    epoch: message.astr.epoch || conversation.channel?.epoch || 1,
+    direction: message.astr.direction,
+    counter: message.astr.counter,
+    previous_chain_length: message.astr.previous_chain_length || 0,
+    sender_state_commitment: senderStateCommitment,
+    prev_transcript_hash: message.astr.prev_transcript_hash,
+  }
+  let encryptedCiphertext = message.astr.ciphertext
+  let envelopeMode = false
+  try {
+    const parsed = JSON.parse(message.astr.ciphertext)
+    if ([ENVELOPE_CIPHERTEXT_TYPE, ENVELOPE_CIPHERTEXT_TYPE_V4].includes(parsed?.type) && Array.isArray(parsed.envelopes)) {
+      envelopeMode = true
+      const deviceId = currentDeviceId()
+      const envelope = parsed.envelopes.find((item) =>
+        String(item.user_id) === String(user.id) && item.device_id === deviceId
+      )
+      if (!envelope) throw new AstrClientError('DEVICE_ENVELOPE_MISSING', 'Message was not encrypted for this device')
+      encryptedCiphertext = envelope.ciphertext
+    }
+  } catch (e) {
+    if (e instanceof AstrClientError) throw e
+  }
+  const payload = base64ToBytes(encryptedCiphertext)
+  const nonce = payload.slice(0, 12)
+  const ciphertext = payload.slice(12)
+  const messageKey = envelopeMode
+    ? await v3MessageKey(conversation, user, message.astr.direction, message.astr.counter, senderPublicKey)
+    : await v3MessageKey(conversation, user, message.astr.direction, message.astr.counter, message.is_mine ? null : senderPublicKey)
+  const plaintext = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: nonce, additionalData: associatedDataV4(packet) },
     await aesKeyFromBytes(messageKey),
     ciphertext
   )
@@ -420,6 +483,7 @@ export async function decryptAstrMessage(conversation, user, message) {
   if (message.body || !message.astr?.ciphertext) return message
   try {
     if (message.astr.version === ASTR_V3) return await decryptV3(conversation, user, message)
+    if (message.astr.version === ASTR_V4) return await decryptV4(conversation, user, message)
     if (message.astr.version === ASTR_V2) return await decryptV2(conversation, message)
     return message
   } catch (e) {

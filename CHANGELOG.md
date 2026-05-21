@@ -32,7 +32,7 @@ World Foresight Forum is currently treated as v1.2. This release establishes the
 - Added a registered-user chatroom that is intentionally separate from private ASTR conversations.
 - Guests and non-writing accounts remain blocked from private messages, chatroom, request flows, notifications, and personal post management.
 
-### ASTR Ratchet Messaging
+### ASTR Private Messaging
 
 - Added browser-held ECDH identity keys for registered users.
 - Added IndexedDB persistence for local cryptographic identity material.
@@ -44,10 +44,16 @@ World Foresight Forum is currently treated as v1.2. This release establishes the
 - Server validation checks epoch, direction, counter, previous transcript hash, previous-chain length, ratchet public key presence, and transcript hash.
 - New private messages are stored as opaque encrypted packets with empty plaintext body.
 - Older ASTR v2 messages remain readable through the v2 decrypt path.
+- Blocked new plaintext fallback sends for accepted private one-to-one conversations.
+- Introduced `astr-v4-client-state-aead` as the current send boundary with `sender_state_commitment` naming.
+- Kept the legacy `ratchet_public_key` database column only for backward-compatible storage.
+- Documented that current server validation is structural delivery/order validation, while client-owned cryptographic transcript verification remains v1.3 work.
+- Added ASTR protocol, threat model, and privacy roadmap documents.
 
 ### ASTR Roadmap Status
 
 - ASTR v3 is WFF's encrypted packet and conversation-state system for private one-to-one messages.
+- ASTR v4 is the current honest packet naming boundary for new sends.
 - The server stores public key bundles and encrypted packet metadata, not private key material.
 - Remaining protocol work includes externally reviewed X3DH-style key agreement, signed prekey verification, one-time prekeys, true rotating DH ratchet keys, bounded skipped-message-key queues, identity-change UX, multi-device session sync, and external cryptographic review.
 

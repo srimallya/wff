@@ -19,17 +19,21 @@ Production path: `https://thetrustcommons.com/wff/`
 - Upvotes and downvotes for both posts and comments.
 - Message requests, accepted private conversations, registered-user chatroom, and PWA notifications.
 - Policy proposal extraction for education, economy, environment, health, and governance.
-- ASTR v3 encrypted private-message packets for accepted one-to-one conversations.
+- ASTR encrypted private-message packets for accepted one-to-one conversations.
 
-## ASTR Ratchet Messaging
+## ASTR Private Messaging
 
-WFF includes an application-specific private messaging protocol called ASTR. In this app, ASTR is used for accepted one-to-one private conversations. It is separate from the public forum, public comments, message requests, and the registered-user chatroom.
+ASTR means Authenticated State-Transition Ratchet. In WFF, a private conversation is modeled as a replicated private state machine, and each private message is treated as an authenticated state-transition command. The transcript hash is the commitment clients use to verify the accepted channel history.
 
-ASTR should be understood as WFF's state-transition and packet-validation layer for private messages. Its contribution is the combination of browser-held identity material, encrypted packet storage, transcript commitment, and server-side validation of message ordering without giving the server plaintext access.
+ASTR is WFF's own client-side encrypted private-message layer. It is not externally audited and is not yet a complete Double Ratchet implementation. The current implementation provides encrypted packet storage and transcript-ordered state commitment while the protocol moves toward Signal-like security properties.
+
+ASTR is used only for accepted one-to-one private conversations. It is separate from the public forum, public comments, message requests, and the registered-user chatroom.
 
 ### What Exists Now
 
-The current private-message path uses `astr-v3-ratchet-aead` packet metadata. Registered users create browser-held ECDH identity keys using WebCrypto. The private key material stays in browser storage through IndexedDB; the server receives only public key bundle data and encrypted packet metadata.
+The current private-message send path uses `astr-v4-client-state-aead` for new packets. Older stored `astr-v3-ratchet-aead` and `astr-v2-client-aead` packets remain readable for compatibility.
+
+Registered users create browser-held ECDH identity keys using WebCrypto. The private key material stays in browser storage through IndexedDB; the server receives public key bundle data and encrypted packet metadata.
 
 When a registered user opens or uses private messaging, the client registers a key bundle through:
 
@@ -40,16 +44,16 @@ POST /api/messages/key-bundle
 The bundle includes:
 
 - user public identity key;
-- signed-prekey public key field;
+- signed-prekey public key field, currently a placeholder for the future signed prekey design;
 - signature placeholder;
 - device id;
 - key update timestamps.
 
-Conversation payloads include participant key bundles so the client can encrypt for the other side. New private messages are sent as ASTR packets with an empty plaintext body on the server.
+Conversation payloads include participant key bundles so the client can encrypt for the other side. New private messages must be sent as ASTR packets. The server rejects new plaintext sends for accepted private one-to-one conversations and stores an empty plaintext body for new private messages.
 
 ### Packet Shape
 
-New ASTR v3 messages carry metadata equivalent to:
+New ASTR v4 messages carry metadata equivalent to:
 
 ```text
 ASTRPacket {
@@ -58,35 +62,41 @@ ASTRPacket {
   direction,
   counter,
   previous_chain_length,
-  ratchet_public_key,
+  sender_state_commitment,
   prev_transcript_hash,
   ciphertext,
   auth_tag
 }
 ```
 
-The server validates the packet as a conversation state transition. It checks that the packet belongs to the expected direction, uses the next expected counter, matches the previous transcript hash, includes ratchet metadata, and produces the expected next transcript hash.
+The older database column remains named `ratchet_public_key` for backward compatibility. For v4 packets, that column stores the `sender_state_commitment`; it is not a real DH ratchet public key.
+
+The server validates packet shape and ordering. It checks that the packet belongs to the expected direction, uses the next expected counter, matches the previous transcript hash, includes state-commitment metadata, and produces the expected next transcript hash. These are structural delivery checks. The server is not the cryptographic authority because it does not have client secrets.
 
 ### Transcript Commitment
 
 Each accepted private packet advances a transcript hash:
 
 ```text
-T_n = Hash(T_{n-1} || direction || counter || ratchet_public_key || ciphertext || auth_tag)
+T_n = Hash(T_{n-1} || direction || counter || sender_state_commitment || ciphertext || auth_tag)
 ```
 
-This gives the server a way to reject replayed, reordered, wrong-direction, wrong-counter, or wrong-transcript packets without seeing plaintext.
+This gives the server a way to reject obviously replayed, reordered, wrong-direction, wrong-counter, or wrong-transcript packets without storing plaintext. Clients must still recompute and verify cryptographic state locally before treating plaintext as accepted.
 
 ### Client Encryption
 
-The browser derives message keys from ECDH material and conversation context. ASTR v3 messages use per-message key derivation rather than storing message plaintext in the database. The server stores packet metadata and ciphertext fields, while the client decrypts messages locally.
+The browser derives message keys from ECDH material and conversation context. Current messages use per-message key derivation rather than storing message plaintext in the database. The server stores packet metadata and ciphertext fields, while the client decrypts messages locally.
 
-The local client code also keeps a compatibility decrypt path for older ASTR v2 messages.
+The local client code keeps compatibility decrypt paths for older ASTR v2 and v3 messages.
+
+Current limitation: server conversation state is still used as ordering metadata. Client-owned transcript verification and local ASTR state are part of the v1.3 protocol work.
 
 ### ASTR Roadmap
 
 Important remaining protocol work includes:
 
+- local client transcript verification from message history;
+- local IndexedDB ASTR channel state per conversation/device;
 - externally reviewed X3DH-style initial key agreement;
 - real signed-prekey verification;
 - one-time prekeys;
@@ -100,9 +110,13 @@ Important remaining protocol work includes:
 
 Until those are implemented and reviewed, describe ASTR precisely as WFF's encrypted packet and conversation-state system.
 
+### Privacy Boundary
+
+ASTR protects private message contents from normal server-side storage and binds packets to a transcript. Current WFF still exposes conversation metadata to the server, including the fact that two accounts have an accepted conversation. It does not yet hide timing, IP, push-notification, read-state, or Socket.IO routing metadata. Private-message content must not be used for public ranking or recommendation.
+
 ### Chatroom Boundary
 
-The registered-user chatroom is not ASTR private messaging. It is a shared room for registered users and should not be described as end-to-end encrypted group messaging.
+The registered-user chatroom is not ASTR private messaging. It is a shared room for registered users and is not end-to-end encrypted group messaging.
 
 ## Recommendations Roadmap
 

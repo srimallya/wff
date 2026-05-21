@@ -6,7 +6,7 @@ from sqlalchemy import and_, or_
 
 from backend.models import ChatroomMessage, Conversation, ConversationRead, Message, MessageRequest, User, UserDeviceKey, db
 from backend.services.account_cleanup import can_use_private_features
-from backend.services.astr import apply_client_packet_transition, apply_send_transition, create_channel_state, dump_channel_state, load_channel_state
+from backend.services.astr import ASTR_CLIENT_STATE_VERSION, apply_client_packet_transition, create_channel_state, dump_channel_state, load_channel_state
 from backend.services.notifications import send_message_notification, send_message_request_notification
 from backend.services.realtime import emit_to_chatroom, emit_to_user
 
@@ -136,6 +136,7 @@ def message_to_dict(message, current_user_id):
             'epoch': message.astr_epoch,
             'previous_chain_length': message.previous_chain_length,
             'ratchet_public_key': message.ratchet_public_key,
+            'sender_state_commitment': message.ratchet_public_key if message.astr_version == ASTR_CLIENT_STATE_VERSION else None,
             'prev_transcript_hash': message.prev_transcript_hash,
             'transcript_hash': message.transcript_hash,
             'ciphertext': message.ciphertext,
@@ -566,8 +567,8 @@ def create_message(conversation_id):
         return jsonify({'error': 'Valid user required'}), 400
     if not can_use_private_features(current_user):
         return private_features_error()
-    if not body and not astr_packet:
-        return jsonify({'error': 'Message required'}), 400
+    if not astr_packet:
+        return jsonify({'error': 'ASTR packet required for private messages'}), 400
     if len(body) > 2000:
         return jsonify({'error': 'Message is too long'}), 400
 
@@ -575,15 +576,19 @@ def create_message(conversation_id):
     if current_user.id not in [conversation.user_one_id, conversation.user_two_id]:
         return jsonify({'error': 'Conversation not found'}), 404
 
+    if client_nonce:
+        existing_message = (
+            Message.query
+            .filter_by(conversation_id=conversation.id, sender_id=current_user.id, client_nonce=client_nonce)
+            .first()
+        )
+        if existing_message:
+            return jsonify({'message': message_to_dict(existing_message, current_user.id)}), 200
+
     try:
-        if astr_packet:
-            astr_meta = apply_client_packet_transition(conversation, current_user.id, astr_packet)
-            stored_body = ''
-            notification_body = 'New message received'
-        else:
-            astr_meta = apply_send_transition(conversation, current_user.id, body)
-            stored_body = body
-            notification_body = body
+        astr_meta = apply_client_packet_transition(conversation, current_user.id, astr_packet)
+        stored_body = ''
+        notification_body = 'New private message'
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 409
 
