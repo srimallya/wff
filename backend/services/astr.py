@@ -54,6 +54,40 @@ def dump_channel_state(state):
     return json.dumps(state, separators=(',', ':'), sort_keys=True)
 
 
+def channel_state_from_messages(conversation):
+    state = create_channel_state()
+    messages = sorted(
+        [message for message in getattr(conversation, 'messages', []) if getattr(message, 'astr_version', None)],
+        key=lambda message: message.id or 0,
+    )
+    for message in messages:
+        direction = message.astr_direction
+        if direction not in ['one_to_two', 'two_to_one']:
+            continue
+        if message.astr_counter is None or not message.transcript_hash:
+            continue
+        state['version'] = message.astr_version or state['version']
+        state['epoch'] = message.astr_epoch or state.get('epoch', 1)
+        state['transcript_hash'] = message.transcript_hash
+        state['counters'][direction] = max(
+            int(state['counters'].get(direction, 0)),
+            int(message.astr_counter) + 1,
+        )
+        state.setdefault('previous_chain_lengths', {})[direction] = max(
+            int(state.get('previous_chain_lengths', {}).get(direction, 0)),
+            int(message.astr_counter) + 1,
+        )
+    return state
+
+
+def reconcile_channel_state(conversation):
+    rebuilt = channel_state_from_messages(conversation)
+    current = load_channel_state(conversation.channel_state)
+    if current != rebuilt:
+        conversation.channel_state = dump_channel_state(rebuilt)
+    return rebuilt
+
+
 def direction_for(conversation, sender_id):
     if sender_id == conversation.user_one_id:
         return 'one_to_two'

@@ -295,9 +295,7 @@ export default function Conversation() {
                             </p>
                           )}
                           <p className="whitespace-pre-wrap break-words">{message.body}</p>
-                          <div className={`mt-1 flex items-center justify-end gap-1 text-[11px] ${
-                            message.is_mine ? 'text-white/75' : 'text-gray-500'
-                          }`}>
+                          <div className="mt-1 flex items-center justify-end gap-1 text-[11px] text-gray-500">
                             <span>{formatMessageTime(message.created_at)}</span>
                             <span aria-label={message.is_mine ? 'Read' : 'Received'}>
                               {message.sending_status === 'sending'

@@ -6,7 +6,7 @@ from sqlalchemy import and_, or_
 
 from backend.models import ChatroomMessage, Conversation, ConversationRead, Message, MessageRequest, User, UserDeviceKey, db
 from backend.services.account_cleanup import can_use_private_features
-from backend.services.astr import ASTR_CLIENT_STATE_VERSION, apply_client_packet_transition, create_channel_state, dump_channel_state, load_channel_state
+from backend.services.astr import ASTR_CLIENT_STATE_VERSION, apply_client_packet_transition, create_channel_state, dump_channel_state, load_channel_state, reconcile_channel_state
 from backend.services.notifications import send_message_notification, send_message_request_notification
 from backend.services.realtime import emit_to_chatroom, emit_to_user
 
@@ -174,8 +174,8 @@ def request_to_dict(message_request, current_user_id):
 
 
 def conversation_to_dict(conversation, current_user_id, include_messages=False):
+    channel_state = reconcile_channel_state(conversation)
     other = other_user_for_conversation(conversation, current_user_id)
-    channel_state = load_channel_state(conversation.channel_state)
     last_message = (
         Message.query
         .filter_by(conversation_id=conversation.id)
@@ -575,6 +575,7 @@ def create_message(conversation_id):
     conversation = Conversation.query.get_or_404(conversation_id)
     if current_user.id not in [conversation.user_one_id, conversation.user_two_id]:
         return jsonify({'error': 'Conversation not found'}), 404
+    reconcile_channel_state(conversation)
 
     if client_nonce:
         existing_message = (

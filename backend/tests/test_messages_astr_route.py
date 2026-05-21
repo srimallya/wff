@@ -98,6 +98,34 @@ class PrivateMessageAstrRouteTest(unittest.TestCase):
             self.assertEqual(message.astr_version, ASTR_CLIENT_STATE_VERSION)
             self.assertEqual(message.ratchet_public_key, packet['sender_state_commitment'])
 
+    def test_send_reconciles_stale_channel_state_from_empty_message_log(self):
+        with self.app.app_context():
+            conversation = db.session.get(Conversation, self.conversation_id)
+            stale_state = create_channel_state()
+            stale_state['transcript_hash'] = 'f' * 64
+            conversation.channel_state = dump_channel_state(stale_state)
+            db.session.commit()
+            packet = make_packet(conversation)
+
+        with patch('backend.routes.messages.send_message_notification'), patch('backend.routes.messages.emit_to_user'):
+            response = self.client.post(f'/messages/threads/{self.conversation_id}/messages', json={
+                'username': 'alice',
+                'client_nonce': 'nonce-after-stale-state',
+                'astr_packet': packet,
+            })
+
+        self.assertEqual(response.status_code, 201)
+        with self.app.app_context():
+            message = Message.query.one()
+            conversation = db.session.get(Conversation, self.conversation_id)
+            self.assertEqual(message.prev_transcript_hash, ZERO_TRANSCRIPT_HASH)
+            self.assertEqual(conversation.channel_state, dump_channel_state({
+                **create_channel_state(),
+                'transcript_hash': message.transcript_hash,
+                'counters': {'one_to_two': 1, 'two_to_one': 0},
+                'previous_chain_lengths': {'one_to_two': 1, 'two_to_one': 0},
+            }))
+
 
 if __name__ == '__main__':
     unittest.main()
