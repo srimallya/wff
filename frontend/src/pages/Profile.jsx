@@ -4,6 +4,7 @@ import { useStore } from '../store/zustandStore'
 import EssayCard from '../components/EssayCard'
 import Chatroom from '../components/Chatroom'
 import MessageHub from '../components/MessageHub'
+import NetworkMap from '../components/NetworkMap'
 import { Icon, IconButton } from '../components/Icons'
 import BottomNav from '../components/BottomNav'
 
@@ -183,7 +184,7 @@ export default function Profile() {
       </header>
 
       {actionsOpen && (
-        <div className="fixed inset-0 z-30">
+        <div className="fixed inset-0 z-50">
           <button
             type="button"
             aria-label="Close menu"
@@ -197,7 +198,7 @@ export default function Profile() {
                 <IconButton onClick={closeActions} icon="close" label="Close" />
               </div>
 
-              <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              <div className="flex-1 overflow-y-auto p-5 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] space-y-5">
                 <div className="swiss-panel space-y-4">
                   <div className="space-y-1">
                     <p className="text-sm text-gray-400">Public name</p>
@@ -333,9 +334,7 @@ export default function Profile() {
                     )}
                   </div>
                 )}
-              </div>
 
-              <div className="border-t border-dark-border p-5">
                 <div className="swiss-panel">
                   <p className="text-sm font-semibold text-gray-100">Support</p>
                   <p className="mt-1 text-sm text-gray-400">
@@ -368,13 +367,16 @@ export default function Profile() {
               <button type="button" onClick={() => setActiveView('essays')} className={`swiss-tab ${activeView === 'essays' ? 'swiss-tab-active' : ''}`}>
                 My posts
               </button>
+              <button type="button" onClick={() => setActiveView('map')} className={`swiss-tab ${activeView === 'map' ? 'swiss-tab-active' : ''}`}>
+                Map
+              </button>
             </div>
 
             {activeView === 'messages' ? (
               <MessageHub showTitle={false} panel="all" />
             ) : activeView === 'chatroom' ? (
               <Chatroom />
-            ) : (
+            ) : activeView === 'essays' ? (
               <div className="space-y-4">
                 {essaysLoading ? (
                   <div className="text-center py-8 text-gray-500">Loading...</div>
@@ -391,6 +393,8 @@ export default function Profile() {
                   </div>
                 )}
               </div>
+            ) : (
+              <NetworkMap />
             )}
           </>
         ) : (

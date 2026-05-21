@@ -33,18 +33,12 @@ export default function Landing() {
 
         <div className="space-y-4 border-t border-dark-border pt-5">
           {user.username ? (
-            <div className="flex gap-6">
+            <div className="flex justify-end">
               <IconButton
                 onClick={() => navigate('/feed')}
-                icon="forum"
-                label="Open forum"
-                className="icon-button-primary mx-auto"
-              />
-              <IconButton
-                onClick={() => navigate('/compose')}
-                icon="edit"
-                label="Write"
-                className=""
+                icon="enter"
+                label="Enter"
+                className="icon-button-primary"
               />
             </div>
           ) : (
