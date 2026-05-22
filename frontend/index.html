@@ -7,8 +7,9 @@
     <link rel="apple-touch-icon" sizes="180x180" href="%BASE_URL%apple-touch-icon.png" />
     <link rel="image_src" href="https://thetrustcommons.com/wff/og-image.png" />
     <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0a0a0a" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="description" content="World Foresight Forum is a global public foresight and policy forum for possible futures." />
     <meta property="og:site_name" content="World Foresight Forum" />
     <meta property="og:type" content="website" />
@@ -36,6 +37,8 @@
         document.documentElement.dataset.theme = resolved;
         var themeColor = document.querySelector('meta[name="theme-color"]');
         if (themeColor) themeColor.setAttribute('content', resolved === 'dark' ? '#181816' : '#ffffff');
+        var statusBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+        if (statusBar) statusBar.setAttribute('content', resolved === 'dark' ? 'black-translucent' : 'default');
       })();
     </script>
   </head>

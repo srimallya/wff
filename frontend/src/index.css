@@ -33,9 +33,13 @@
   color-scheme: light;
 }
 
+html,
 body {
   background-color: var(--wff-bg);
   color: var(--wff-text);
+}
+
+body {
   font-family: "Avenir Next", Avenir, "Helvetica Neue", Arial, sans-serif;
   letter-spacing: 0;
   font-size: 14px;
