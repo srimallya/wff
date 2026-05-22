@@ -41,7 +41,7 @@ export default function Profile() {
     document.documentElement.dataset.theme = theme
     localStorage.setItem('wff_theme', theme)
     const themeColor = document.querySelector('meta[name="theme-color"]')
-    if (themeColor) themeColor.setAttribute('content', theme === 'dark' ? '#1f1f1d' : '#fbfbf8')
+    if (themeColor) themeColor.setAttribute('content', theme === 'dark' ? '#181816' : '#ffffff')
   }, [theme])
 
   useEffect(() => {

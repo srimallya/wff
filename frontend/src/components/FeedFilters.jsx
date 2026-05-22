@@ -71,7 +71,7 @@ export default function FeedFilters() {
   }, [currentYear, feedYearCounts, feedTimelineEssays, essays])
 
   return (
-    <div className="swiss-panel space-y-4">
+    <div className="swiss-panel no-top-divider space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-400">Timeline:</span>

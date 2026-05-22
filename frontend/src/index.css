@@ -6,6 +6,7 @@
 :root[data-theme="dark"] {
   --wff-bg: #1f1f1d;
   --wff-card: #1f1f1d;
+  --wff-chrome: #181816;
   --wff-border: #73736d;
   --wff-border-soft: #4f4f4a;
   --wff-text: #f4f4ef;
@@ -13,13 +14,14 @@
   --wff-muted: #a9aaa4;
   --wff-faint: #74756f;
   --wff-primary: #e30613;
-  --wff-header: rgba(31, 31, 29, 0.96);
+  --wff-header: rgba(24, 24, 22, 0.98);
   color-scheme: dark;
 }
 
 :root[data-theme="light"] {
   --wff-bg: #fbfbf8;
   --wff-card: #ffffff;
+  --wff-chrome: #ffffff;
   --wff-border: #d9d9d2;
   --wff-border-soft: #d9d9d2;
   --wff-text: #111111;
@@ -27,7 +29,7 @@
   --wff-muted: #4b5563;
   --wff-faint: #6b6f76;
   --wff-primary: #e30613;
-  --wff-header: rgba(251, 251, 248, 0.96);
+  --wff-header: rgba(255, 255, 255, 0.98);
   color-scheme: light;
 }
 
@@ -246,7 +248,8 @@ input[type="range"] {
 .swiss-panel > .border-t:first-child,
 .swiss-panel > form.border-t:first-child,
 .swiss-panel > div.border-t:first-child,
-.swiss-tabs + .swiss-panel {
+.swiss-tabs + .swiss-panel,
+.no-top-divider {
   border-top: 0 !important;
 }
 

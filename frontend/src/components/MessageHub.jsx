@@ -185,11 +185,11 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
             </EmptyState>
           ) : (
             <div className="space-y-2">
-              {filteredThreads.map((thread) => (
+              {filteredThreads.map((thread, index) => (
                 <button
                   key={thread.id}
                   onClick={() => navigate(`/messages/${thread.id}`)}
-                  className="w-full border-t border-dark-border py-4 text-left"
+                  className={`w-full border-t border-dark-border py-4 text-left ${index === 0 ? 'border-t-0' : ''}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">

@@ -32,7 +32,10 @@
     <script>
       (function () {
         var theme = localStorage.getItem('wff_theme') || 'dark';
-        document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+        var resolved = theme === 'light' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = resolved;
+        var themeColor = document.querySelector('meta[name="theme-color"]');
+        if (themeColor) themeColor.setAttribute('content', resolved === 'dark' ? '#181816' : '#ffffff');
       })();
     </script>
   </head>
