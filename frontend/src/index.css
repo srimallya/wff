@@ -243,6 +243,13 @@ input[type="range"] {
   padding-top: 1.15rem;
 }
 
+.swiss-panel > .border-t:first-child,
+.swiss-panel > form.border-t:first-child,
+.swiss-panel > div.border-t:first-child,
+.swiss-tabs + .swiss-panel {
+  border-top: 0 !important;
+}
+
 .swiss-action {
   color: var(--wff-primary);
   font-weight: 600;
@@ -278,11 +285,6 @@ input[type="range"] {
   border-color: var(--wff-border) !important;
 }
 
-.border-primary,
-[class*="border-primary"] {
-  border-color: var(--wff-primary) !important;
-}
-
 .text-swiss-black {
   color: var(--wff-text) !important;
 }
@@ -302,6 +304,13 @@ select {
   background-color: transparent !important;
   border-color: var(--wff-border) !important;
   color: var(--wff-text) !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus,
+.focus\:border-primary:focus {
+  border-color: var(--wff-border) !important;
 }
 
 @media (max-width: 768px) {
