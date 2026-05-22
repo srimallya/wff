@@ -1,12 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <rect width="1200" height="630" fill="#f7f5ef"/>
-  <rect x="54" y="54" width="1092" height="522" rx="72" fill="#ffffff" stroke="#111111" stroke-width="6"/>
-  <circle cx="938" cy="190" r="132" fill="none" stroke="#e30613" stroke-width="22"/>
-  <path d="M812 190h252M938 58c42 35 66 80 66 132s-24 97-66 132M938 58c-42 35-66 80-66 132s24 97 66 132" fill="none" stroke="#111111" stroke-width="14" stroke-linecap="round"/>
-  <text x="96" y="218" fill="#111111" font-family="Georgia, Times New Roman, serif" font-size="78" font-weight="700">World Foresight Forum</text>
-  <text x="100" y="302" fill="#4b5563" font-family="Georgia, Times New Roman, serif" font-size="34">A global policy hub for possible futures</text>
-  <rect x="96" y="464" width="420" height="58" rx="29" fill="#e30613"/>
-  <text x="122" y="502" fill="#ffffff" font-family="Georgia, Times New Roman, serif" font-size="27" font-weight="700">thetrustcommons.com/wff</text>
-  <circle cx="1085" cy="508" r="22" fill="#ffcc00"/>
-  <circle cx="1028" cy="508" r="22" fill="#0057b8"/>
+  <rect width="1200" height="630" fill="#0a0a0a"/>
+  <rect x="414" y="79" width="372" height="372" rx="82" fill="#0a0a0a"/>
+  <rect x="434" y="99" width="332" height="332" rx="70" fill="none" stroke="#3a3a3a" stroke-width="7"/>
+  <text x="600" y="309" text-anchor="middle" font-family="Avenir Next, Helvetica Neue, Arial, sans-serif" font-size="126" font-weight="500" fill="#f7f7f2">wff</text>
+  <text x="600" y="513" text-anchor="middle" font-family="Avenir Next, Helvetica Neue, Arial, sans-serif" font-size="34" font-weight="500" fill="#f7f7f2">World Foresight Forum</text>
+  <text x="600" y="563" text-anchor="middle" font-family="Avenir Next, Helvetica Neue, Arial, sans-serif" font-size="22" font-weight="500" fill="#8b8d8f">thetrustcommons.com/wff</text>
 </svg>
