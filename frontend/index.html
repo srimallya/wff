@@ -29,6 +29,12 @@
     <meta name="twitter:image" content="https://thetrustcommons.com/wff/og-image.png" />
     <meta name="twitter:image:alt" content="World Foresight Forum word mark" />
     <title>World Foresight Forum</title>
+    <script>
+      (function () {
+        var theme = localStorage.getItem('wff_theme') || 'dark';
+        document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+      })();
+    </script>
   </head>
   <body class="bg-dark-bg text-white font-sans">
     <div id="root"></div>

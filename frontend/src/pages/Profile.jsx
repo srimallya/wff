@@ -31,8 +31,18 @@ export default function Profile() {
   const [notificationsOn, setNotificationsOn] = useState(
     localStorage.getItem('wff_notifications') === 'true'
   )
+  const [theme, setTheme] = useState(() =>
+    localStorage.getItem('wff_theme') === 'light' ? 'light' : 'dark'
+  )
   const [notificationStatus, setNotificationStatus] = useState('')
   const canUsePrivateFeatures = Boolean(user.canPost && !user.isGuest)
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    localStorage.setItem('wff_theme', theme)
+    const themeColor = document.querySelector('meta[name="theme-color"]')
+    if (themeColor) themeColor.setAttribute('content', theme === 'dark' ? '#1f1f1d' : '#fbfbf8')
+  }, [theme])
 
   useEffect(() => {
     if (user.username && canUsePrivateFeatures) {
@@ -168,6 +178,10 @@ export default function Profile() {
     window.location.href = 'https://razorpay.me/@trustcommons'
   }
 
+  const toggleTheme = () => {
+    setTheme((currentTheme) => currentTheme === 'dark' ? 'light' : 'dark')
+  }
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -244,7 +258,7 @@ export default function Profile() {
                 </div>
 
                 {canUsePrivateFeatures && (
-                  <div className="swiss-panel">
+                  <div className="swiss-panel space-y-5">
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <p className="text-sm font-medium text-gray-200">PWA notifications</p>
@@ -265,6 +279,27 @@ export default function Profile() {
                         <span
                           className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${
                             notificationsOn ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 border-t border-dark-border pt-5">
+                      <div>
+                        <p className="text-sm font-medium text-gray-200">Display mode</p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {theme === 'dark' ? 'Dark' : 'Light'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={toggleTheme}
+                        className={`relative h-7 w-12 rounded-full transition-colors ${theme === 'dark' ? 'bg-primary' : 'bg-dark-border'}`}
+                        aria-pressed={theme === 'dark'}
+                        aria-label="Dark mode"
+                      >
+                        <span
+                          className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${
+                            theme === 'dark' ? 'translate-x-5' : 'translate-x-0'
                           }`}
                         />
                       </button>
