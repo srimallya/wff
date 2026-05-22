@@ -190,6 +190,34 @@ input[type="range"] {
   padding-bottom: 5rem;
 }
 
+.feed-discovery-panel {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-0.75rem);
+  transition:
+    max-height 280ms ease,
+    opacity 180ms ease,
+    transform 280ms ease;
+}
+
+.feed-discovery-panel-open {
+  max-height: 26rem;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.feed-search-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--wff-border);
+  padding-bottom: 0.9rem;
+  color: var(--wff-muted);
+  font-size: 0.82rem;
+}
+
 .bottom-tabbar {
   position: fixed;
   bottom: 0;

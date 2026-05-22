@@ -15,6 +15,7 @@ export default function Feed() {
   } = useStore()
   const [loading, setLoading] = useState(false)
   const [inputValue, setInputValue] = useState('')
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -48,26 +49,76 @@ export default function Feed() {
           <p className="app-kicker">World Foresight Forum</p>
           <div className="mt-2 flex items-end justify-between gap-4">
             <h1 className="app-title">Forum</h1>
-            {user.canPost && (
-              <button type="button" onClick={() => navigate('/compose')} className="swiss-action text-sm">
-                Write
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((open) => !open)}
+              className="swiss-action text-sm"
+              aria-expanded={filtersOpen}
+              aria-controls="feed-discovery-controls"
+            >
+              Search
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-5 py-6 space-y-7">
-        <form onSubmit={handleSearchSubmit} className="relative">
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Search foresight posts..."
-            className="w-full border-0 border-b px-0 py-3 pr-20 text-sm focus:outline-none focus:border-primary"
-          />
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-4">
+      <main className="max-w-2xl mx-auto px-5 py-6">
+        <section
+          id="feed-discovery-controls"
+          className={`feed-discovery-panel ${filtersOpen ? 'feed-discovery-panel-open' : ''}`}
+          aria-hidden={!filtersOpen}
+        >
+          <div className="feed-discovery-panel-inner space-y-7 pb-7">
+            <form onSubmit={handleSearchSubmit} className="relative">
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="Search foresight posts..."
+                className="w-full border-0 border-b px-0 py-3 pr-20 text-sm focus:outline-none focus:border-primary"
+                tabIndex={filtersOpen ? 0 : -1}
+              />
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-4">
+                {searchQuery && (
+                  <IconButton
+                    type="button"
+                    onClick={handleClearSearch}
+                    icon="close"
+                    label="Clear"
+                    className="swiss-line-button"
+                    tabIndex={filtersOpen ? 0 : -1}
+                  />
+                )}
+                <IconButton
+                  type="submit"
+                  icon="search"
+                  label="Search"
+                  className="icon-button-primary"
+                  tabIndex={filtersOpen ? 0 : -1}
+                />
+              </div>
+            </form>
+
             {searchQuery && (
+              <div className="text-sm text-gray-400">
+                {searchResults.length} results for "{searchQuery}"
+              </div>
+            )}
+
+            {searchError && (
+              <div className="border-l border-primary pl-3 text-sm text-red-500">
+                {searchError}
+              </div>
+            )}
+
+            {!searchQuery && <FeedFilters />}
+          </div>
+        </section>
+
+        {!filtersOpen && searchQuery && (
+          <div className="feed-search-summary mt-7">
+            <span>{searchResults.length} results for "{searchQuery}"</span>
+            <div className="flex items-center gap-4">
               <IconButton
                 type="button"
                 onClick={handleClearSearch}
@@ -75,31 +126,18 @@ export default function Feed() {
                 label="Clear"
                 className="swiss-line-button"
               />
-            )}
-            <IconButton
-              type="submit"
-              icon="search"
-              label="Search"
-              className="icon-button-primary"
-            />
-          </div>
-        </form>
-
-        {searchQuery && (
-          <div className="text-sm text-gray-400">
-            {searchResults.length} results for "{searchQuery}"
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(true)}
+                className="swiss-action text-sm"
+              >
+                Search
+              </button>
+            </div>
           </div>
         )}
 
-        {searchError && (
-          <div className="border-l border-primary pl-3 text-sm text-red-500">
-            {searchError}
-          </div>
-        )}
-
-        {!searchQuery && <FeedFilters />}
-
-        <div className="space-y-4">
+        <div className={`${filtersOpen || searchQuery ? 'mt-7' : ''} space-y-4`}>
           {displayLoading ? (
             <div className="py-12 text-center text-sm text-gray-500">Loading...</div>
           ) : displayEssays.length === 0 ? (
