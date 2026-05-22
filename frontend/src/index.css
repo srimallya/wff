@@ -187,7 +187,7 @@ input[type="range"] {
 
 .app-shell {
   min-height: 100dvh;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 5rem);
+  padding-bottom: 5rem;
 }
 
 .bottom-tabbar {
@@ -206,8 +206,8 @@ input[type="range"] {
   display: grid;
   max-width: 42rem;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  min-height: calc(4.25rem + env(safe-area-inset-bottom));
-  padding: 0.85rem 1.25rem calc(env(safe-area-inset-bottom) + 1.15rem);
+  min-height: 4.25rem;
+  padding: 0.85rem 1.25rem;
   align-items: center;
 }
 
