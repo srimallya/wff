@@ -234,6 +234,14 @@ select {
   color: #111111 !important;
 }
 
+@media (max-width: 768px) {
+  input:not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 input::placeholder,
 textarea::placeholder {
   color: #a3a3a0;
