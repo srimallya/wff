@@ -1,18 +1,11 @@
 from flask import Blueprint, jsonify, request
 
-from backend.models import PushSubscription, User, db
+from backend.models import PushSubscription, db
+from backend.routes.auth import require_current_user
 from backend.services.account_cleanup import can_use_private_features
 from backend.services.notifications import vapid_public_key, web_push_configured
 
 notifications_bp = Blueprint('wff_notifications', __name__)
-
-
-def current_user_from_data(data=None):
-    data = data or {}
-    username = data.get('username') or request.args.get('username')
-    if not username:
-        return None
-    return User.query.filter_by(username=username).first()
 
 
 @notifications_bp.route('/vapid-public-key', methods=['GET'])
@@ -26,7 +19,7 @@ def get_vapid_public_key():
 @notifications_bp.route('/subscriptions', methods=['POST'])
 def save_subscription():
     data = request.get_json(silent=True) or {}
-    user = current_user_from_data(data)
+    user = require_current_user()
     subscription = data.get('subscription') or {}
     keys = subscription.get('keys') or {}
     endpoint = subscription.get('endpoint')
@@ -56,7 +49,7 @@ def save_subscription():
 @notifications_bp.route('/subscriptions', methods=['DELETE'])
 def delete_subscription():
     data = request.get_json(silent=True) or {}
-    user = current_user_from_data(data)
+    user = require_current_user()
     endpoint = data.get('endpoint')
 
     if not user:

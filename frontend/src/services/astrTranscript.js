@@ -10,6 +10,8 @@ export const ASTR_VERIFY_CODES = {
   DECRYPT_FAILED: 'decrypt-failed',
   TRANSCRIPT_INVALID: 'transcript-invalid',
   IDENTITY_KEY_MISMATCH: 'identity-key-mismatch',
+  IDENTITY_KEY_CHANGED: 'identity-key-changed',
+  SECURE_STATE_MISMATCH: 'secure-state-mismatch',
   UNSUPPORTED_VERSION: 'unsupported-version',
   REPLAY: 'replay',
   WRONG_COUNTER: 'wrong-counter',

@@ -59,9 +59,24 @@ This commitment is structural and transcript-bound. It does not prove to the ser
 - Refuse silent plaintext downgrade.
 - Preserve compatibility reads for older stored packets.
 
-Client-owned transcript verification is partially implemented. The frontend now recomputes the ASTR transcript on conversation load, separates transcript failure codes, pins incoming v4 sender identity commitments against the registered key bundle, and refuses to send from a generic decrypt-failed state. A missing device envelope may advance structural transcript state only when the packet hash is otherwise valid, because that case means the current device was not an intended recipient of that envelope.
+Client-owned transcript verification is partially implemented. The frontend now recomputes the ASTR transcript on conversation load, separates transcript failure codes, checks incoming v4 sender identity commitments against the registered key bundle, and refuses to send from a generic decrypt-failed state. A missing device envelope may advance structural transcript state only when the packet hash is otherwise valid, because that case means the current device was not an intended recipient of that envelope.
 
-Durable local ASTR state is still pending. The current implementation recomputes from the loaded server message list instead of persisting a client-owned state object in IndexedDB.
+Durable local ASTR state is implemented for v4 transcript state. The client stores per-conversation state in IndexedDB under `wff-astr-v4` and detects server omission or rewrite of previously verified transcript history before normal display or sending.
+
+## Identity Pinning And Safety Numbers
+
+The v4 client implements trust-on-first-use identity pinning for the remote user's current identity public key. Pins are stored locally in IndexedDB in `astrIdentityPins`; the server-provided bundle is not accepted as the only trust anchor after a local pin exists.
+
+On first valid remote identity observation, the client stores an unverified local pin. On later conversation loads, if the current remote identity key differs from the local pin, the conversation is marked `identity-key-changed`, normal sending is blocked, and the UI requires explicit review before sending can resume.
+
+The Conversation security panel shows:
+
+- security status: verified, unverified, or identity changed;
+- the remote identity fingerprint;
+- a safety number derived from both users' identity public keys using the domain separator `wff:astr:safety-number:v1`;
+- controls to mark the identity as verified or explicitly accept a changed identity.
+
+This is a safety-number foundation, not an external audit or compatibility claim.
 
 ## Server Responsibilities
 
@@ -77,9 +92,8 @@ Durable local ASTR state is still pending. The current implementation recomputes
 - No claim of complete Double Ratchet state.
 - No real X3DH-style session setup yet.
 - No real signed prekeys or one-time prekeys yet.
-- No true durable per-device ASTR session state yet.
+- No true durable per-device Double Ratchet session state yet.
 - No skipped-message-key cache yet.
-- No identity verification UX yet.
 - No social graph hiding yet.
 - No resistance to timing or IP correlation.
 - No external cryptographic audit yet.

@@ -8,6 +8,7 @@ from sqlalchemy import and_, or_
 from werkzeug.utils import secure_filename
 
 from backend.models import ChatroomMessage, Conversation, ConversationRead, Message, MessageRequest, User, UserDeviceKey, db
+from backend.routes.auth import require_current_user
 from backend.services.account_cleanup import can_use_private_features
 from backend.services.astr import ASTR_CLIENT_STATE_VERSION, apply_client_packet_transition, create_channel_state, dump_channel_state, load_channel_state, reconcile_channel_state
 from backend.services.notifications import send_message_notification, send_message_request_notification
@@ -136,19 +137,6 @@ def key_bundle_to_dict(user):
         'updated_at': user.key_bundle_updated_at.isoformat() if user.key_bundle_updated_at else None,
         'devices': devices,
     }
-
-
-def get_current_user(data=None):
-    data = data or {}
-    username = (
-        data.get('username')
-        or request.args.get('username')
-        or data.get('current_username')
-        or request.args.get('current_username')
-    )
-    if not username:
-        return None
-    return User.query.filter_by(username=username).first()
 
 
 def private_features_error():
@@ -314,7 +302,7 @@ def conversation_to_dict(conversation, current_user_id, include_messages=False):
 
 @messages_bp.route('/key-bundle', methods=['GET'])
 def get_key_bundle():
-    current_user = get_current_user()
+    current_user = require_current_user()
     if not current_user:
         return jsonify({'error': 'Valid user required'}), 400
     if not can_use_private_features(current_user):
@@ -325,7 +313,7 @@ def get_key_bundle():
 @messages_bp.route('/key-bundle', methods=['POST'])
 def save_key_bundle():
     data = request.get_json(silent=True) or {}
-    current_user = get_current_user(data)
+    current_user = require_current_user()
     if not current_user:
         return jsonify({'error': 'Valid user required'}), 400
     if not can_use_private_features(current_user):
@@ -363,7 +351,7 @@ def save_key_bundle():
 
 @messages_bp.route('/chatroom', methods=['GET'])
 def get_chatroom():
-    current_user = get_current_user()
+    current_user = require_current_user()
     if not current_user:
         return jsonify({'error': 'Valid user required'}), 400
     if not can_use_private_features(current_user):
@@ -388,7 +376,7 @@ def get_chatroom():
 @messages_bp.route('/chatroom/messages', methods=['POST'])
 def create_chatroom_message():
     data = request.get_json(silent=True) or {}
-    current_user = get_current_user(data)
+    current_user = require_current_user()
     body = (data.get('body') or '').strip()
     client_nonce = (data.get('client_nonce') or '').strip()[:64] or None
     if not current_user:
@@ -453,7 +441,7 @@ def close_conversation(conversation, current_user, status):
 
 @messages_bp.route('/users/search', methods=['GET'])
 def search_users():
-    current_user = get_current_user()
+    current_user = require_current_user()
     query = (request.args.get('q') or '').strip()
     if not current_user:
         return jsonify({'error': 'Valid user required'}), 400
@@ -477,7 +465,7 @@ def search_users():
 
 @messages_bp.route('', methods=['GET'])
 def get_message_home():
-    current_user = get_current_user()
+    current_user = require_current_user()
     if not current_user:
         return jsonify({'error': 'Valid user required'}), 400
     if not can_use_private_features(current_user):
@@ -512,7 +500,7 @@ def get_message_home():
 @messages_bp.route('/requests', methods=['POST'])
 def create_message_request():
     data = request.get_json(silent=True) or {}
-    current_user = get_current_user(data)
+    current_user = require_current_user()
     receiver_username = (data.get('receiver_username') or '').strip()
     note = (data.get('note') or '').strip()
     if not current_user:
@@ -576,7 +564,7 @@ def create_message_request():
 @messages_bp.route('/requests/<int:request_id>/accept', methods=['POST'])
 def accept_message_request(request_id):
     data = request.get_json(silent=True) or {}
-    current_user = get_current_user(data)
+    current_user = require_current_user()
     if not current_user:
         return jsonify({'error': 'Valid user required'}), 400
     if not can_use_private_features(current_user):
@@ -616,7 +604,7 @@ def accept_message_request(request_id):
 @messages_bp.route('/requests/<int:request_id>', methods=['DELETE'])
 def delete_message_request(request_id):
     data = request.get_json(silent=True) or {}
-    current_user = get_current_user(data)
+    current_user = require_current_user()
     if not current_user:
         return jsonify({'error': 'Valid user required'}), 400
     if not can_use_private_features(current_user):
@@ -639,7 +627,7 @@ def delete_message_request(request_id):
 
 @messages_bp.route('/threads/<int:conversation_id>', methods=['GET'])
 def get_conversation(conversation_id):
-    current_user = get_current_user()
+    current_user = require_current_user()
     if not current_user:
         return jsonify({'error': 'Valid user required'}), 400
     if not can_use_private_features(current_user):
@@ -658,7 +646,7 @@ def get_conversation(conversation_id):
 @messages_bp.route('/threads/<int:conversation_id>/messages', methods=['POST'])
 def create_message(conversation_id):
     data = request.get_json(silent=True) or {}
-    current_user = get_current_user(data)
+    current_user = require_current_user()
     body = (data.get('body') or '').strip()
     client_nonce = (data.get('client_nonce') or '').strip()[:64] or None
     astr_packet = data.get('astr_packet') or None
@@ -728,7 +716,7 @@ def create_message(conversation_id):
 
 @messages_bp.route('/threads/<int:conversation_id>/media', methods=['POST'])
 def create_media_message(conversation_id):
-    current_user = get_current_user(request.form)
+    current_user = require_current_user()
     client_nonce = (request.form.get('client_nonce') or '').strip()[:64] or None
     upload = request.files.get('file')
     if not current_user:
@@ -808,7 +796,7 @@ def create_media_message(conversation_id):
 
 @messages_bp.route('/media/<int:message_id>', methods=['GET'])
 def open_media(message_id):
-    current_user = get_current_user()
+    current_user = require_current_user()
     if not current_user:
         return jsonify({'error': 'Valid user required'}), 400
     if not can_use_private_features(current_user):
@@ -862,7 +850,7 @@ def open_media(message_id):
 @messages_bp.route('/threads/<int:conversation_id>', methods=['DELETE'])
 def delete_conversation(conversation_id):
     data = request.get_json(silent=True) or {}
-    current_user = get_current_user(data)
+    current_user = require_current_user()
     if not current_user:
         return jsonify({'error': 'Valid user required'}), 400
     if not can_use_private_features(current_user):
@@ -878,7 +866,7 @@ def delete_conversation(conversation_id):
 @messages_bp.route('/threads/<int:conversation_id>/unfriend', methods=['POST'])
 def unfriend_conversation(conversation_id):
     data = request.get_json(silent=True) or {}
-    current_user = get_current_user(data)
+    current_user = require_current_user()
     if not current_user:
         return jsonify({'error': 'Valid user required'}), 400
     if not can_use_private_features(current_user):
@@ -894,7 +882,7 @@ def unfriend_conversation(conversation_id):
 @messages_bp.route('/threads/<int:conversation_id>/block', methods=['POST'])
 def block_conversation(conversation_id):
     data = request.get_json(silent=True) or {}
-    current_user = get_current_user(data)
+    current_user = require_current_user()
     if not current_user:
         return jsonify({'error': 'Valid user required'}), 400
     if not can_use_private_features(current_user):

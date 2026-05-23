@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../store/zustandStore'
 import { IconButton } from '../components/Icons'
 import { API_BASE } from '../api'
+import { acceptConversationIdentityChange, markConversationIdentityVerified } from '../services/astrClient'
 
 const APP_TIME_ZONE = 'Asia/Kolkata'
 const SERVER_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/
@@ -79,10 +80,10 @@ function displayMessageBody(body) {
   return (body || '').replace(/^Reply to\s+[^:\n]+:\s*/i, 'Reply to: ')
 }
 
-function mediaUrl(message, username) {
+function mediaUrl(message) {
   const path = message?.media?.url
-  if (!path || !username) return ''
-  return `${API_BASE}${path}?username=${encodeURIComponent(username)}`
+  if (!path) return ''
+  return `${API_BASE}${path}`
 }
 
 function formatBytes(value) {
@@ -121,6 +122,7 @@ export default function Conversation() {
   const [mediaSending, setMediaSending] = useState(false)
   const [actionsOpen, setActionsOpen] = useState(false)
   const [closingAction, setClosingAction] = useState('')
+  const [securityUpdating, setSecurityUpdating] = useState('')
   const [nicknames, setNicknames] = useState(() => loadNicknames())
   const [nicknameDraft, setNicknameDraft] = useState('')
   const [replyTo, setReplyTo] = useState(null)
@@ -212,6 +214,32 @@ export default function Conversation() {
     else delete next[otherUsername]
     saveNicknames(next)
     setNicknames(next)
+  }
+
+  const handleMarkIdentityVerified = async () => {
+    if (!conversation) return
+    setSecurityUpdating('verify')
+    try {
+      const security = await markConversationIdentityVerified(conversation, user)
+      setConversation((current) => ({ ...current, security }))
+    } finally {
+      setSecurityUpdating('')
+    }
+  }
+
+  const handleAcceptIdentityChange = async () => {
+    if (!conversation) return
+    setSecurityUpdating('accept')
+    try {
+      await acceptConversationIdentityChange(conversation, user)
+      const result = await fetchConversation(conversationId)
+      if (result.success) {
+        setConversation(result.conversation)
+        setError('')
+      }
+    } finally {
+      setSecurityUpdating('')
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -332,7 +360,7 @@ export default function Conversation() {
   }
 
   const openMedia = (message) => {
-    const url = mediaUrl(message, user.username)
+    const url = mediaUrl(message)
     if (!url) return
     if (['image', 'video'].includes(message.media?.kind)) {
       setMediaPreview({ message, url })
@@ -369,7 +397,9 @@ export default function Conversation() {
         {error && <div className="mx-4 mt-4 border-l border-primary pl-3 text-sm text-red-400">{error}</div>}
         {conversation?.transcript_verified === false && (
           <div className="mx-4 mt-4 border-l border-primary pl-3 text-sm text-red-500">
-            Secure state warning: this conversation transcript could not be verified. {conversation.transcript_error || 'Refresh and try again.'}
+            {conversation.identity_changed
+              ? 'Secure identity changed. Review security details before sending.'
+              : `Secure state warning: this conversation transcript could not be verified. ${conversation.transcript_error || 'Refresh and try again.'}`}
           </div>
         )}
 
@@ -430,7 +460,7 @@ export default function Conversation() {
                                   <audio
                                     controls
                                     preload="none"
-                                    src={mediaUrl(message, user.username)}
+                                    src={mediaUrl(message)}
                                     className="w-[16rem] max-w-full"
                                   />
                                 </div>
@@ -596,6 +626,57 @@ export default function Conversation() {
                   <button type="button" onClick={handleSaveNickname} className="text-sm font-medium text-primary">
                     Save nickname
                   </button>
+                </div>
+              </div>
+              <div className="border-t border-dark-border py-3">
+                <p className="text-xs text-gray-500">Security</p>
+                <p className={`mt-1 text-sm font-medium ${conversation.security?.status === 'changed' ? 'text-red-400' : conversation.security?.status === 'verified' ? 'text-primary' : 'text-gray-100'}`}>
+                  {conversation.security?.status === 'changed'
+                    ? 'Identity changed'
+                    : conversation.security?.status === 'verified'
+                    ? 'Verified'
+                    : 'Unverified'}
+                </p>
+                {conversation.security?.status === 'changed' && (
+                  <p className="mt-2 text-xs leading-5 text-red-300">
+                    The saved identity for this conversation no longer matches the key now being presented. Confirm out of band before accepting this change.
+                  </p>
+                )}
+                {conversation.security?.safety_number_display && (
+                  <div className="mt-3">
+                    <p className="text-xs text-gray-500">Safety number</p>
+                    <p className="mt-1 break-words font-mono text-xs leading-5 text-gray-100">
+                      {conversation.security.safety_number_display}
+                    </p>
+                  </div>
+                )}
+                {conversation.security?.remote_identity_fingerprint_display && (
+                  <div className="mt-3">
+                    <p className="text-xs text-gray-500">Remote identity fingerprint</p>
+                    <p className="mt-1 break-words font-mono text-xs leading-5 text-gray-400">
+                      {conversation.security.remote_identity_fingerprint_display}
+                    </p>
+                  </div>
+                )}
+                <div className="mt-4 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={handleMarkIdentityVerified}
+                    disabled={securityUpdating === 'verify' || !conversation.security?.pin || conversation.security?.status === 'changed'}
+                    className="text-left text-sm font-medium text-primary disabled:text-gray-600"
+                  >
+                    Mark as verified
+                  </button>
+                  {conversation.security?.status === 'changed' && (
+                    <button
+                      type="button"
+                      onClick={handleAcceptIdentityChange}
+                      disabled={securityUpdating === 'accept'}
+                      className="text-left text-sm font-semibold text-red-300 disabled:text-gray-600"
+                    >
+                      Accept changed identity
+                    </button>
+                  )}
                 </div>
               </div>
               <button

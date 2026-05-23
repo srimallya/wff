@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { io } from 'socket.io-client'
-import { API_BASE } from '../api'
+import { API_BASE, apiFetch } from '../api'
 import { AstrClientError, createAstrPacket, decryptConversation, ensureKeyBundleRegistered } from '../services/astrClient'
 
 const socketPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/socket.io`
@@ -16,6 +16,7 @@ function normalizeUser(d) {
     isGuest: d.is_guest ?? d.isGuest ?? false,
     canPost: d.can_post ?? d.canPost ?? false,
     realUsername: d.real_username ?? d.realUsername ?? null,
+    csrfToken: d.csrf_token ?? d.csrfToken ?? localStorage.getItem('wff_csrfToken') ?? null,
   }
 }
 
@@ -50,6 +51,7 @@ export const useStore = create((set, get) => ({
     isGuest: localStorage.getItem('wff_isGuest') === 'true',
     canPost: localStorage.getItem('wff_canPost') === 'true',
     realUsername: localStorage.getItem('wff_realUsername') || null,
+    csrfToken: localStorage.getItem('wff_csrfToken') || null,
   },
 
   feedFilter: { year: null, active: false, countryCode: '' },
@@ -84,9 +86,9 @@ export const useStore = create((set, get) => ({
   clearUser: () => {
     [
       'username', 'id', 'birthdate', 'isBengali', 'isGuest',
-      'canPost', 'realUsername'
+      'canPost', 'realUsername', 'csrfToken'
     ].forEach(k => localStorage.removeItem(`wff_${k}`))
-    set({ user: { username: null, id: null, birthdate: null, isBengali: false, isGuest: false, canPost: false, realUsername: null }, essays: [] })
+    set({ user: { username: null, id: null, birthdate: null, isBengali: false, isGuest: false, canPost: false, realUsername: null, csrfToken: null }, essays: [] })
     if (socket) socket.disconnect()
     socket = null
   },
@@ -97,10 +99,11 @@ export const useStore = create((set, get) => ({
     socket = io(socketUrl, {
       path: socketPath,
       transports: ['polling', 'websocket'],
+      withCredentials: true,
     })
     socket.on('connect', () => {
       set({ realtimeConnected: true })
-      socket.emit('wff_join', { username: user.username })
+      socket.emit('wff_join', {})
     })
     socket.on('disconnect', () => set({ realtimeConnected: false }))
     socket.on('message_created', (payload) => {
@@ -230,7 +233,7 @@ export const useStore = create((set, get) => ({
 
   joinChatroom: () => {
     const { user } = get()
-    if (socket?.connected && user.username) socket.emit('wff_join_chatroom', { username: user.username })
+    if (socket?.connected && user.username) socket.emit('wff_join_chatroom', {})
   },
 
   setFeedYear: (year) => set((s) => ({ feedFilter: { ...s.feedFilter, year, active: true } })),
@@ -246,7 +249,7 @@ export const useStore = create((set, get) => ({
 
   register: async (data) => {
     try {
-      const res = await fetch(`${API_BASE}/auth/register`, {
+      const res = await apiFetch(`${API_BASE}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -265,7 +268,7 @@ export const useStore = create((set, get) => ({
 
   login: async (real_username, password) => {
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
+      const res = await apiFetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ real_username, password }),
@@ -284,7 +287,7 @@ export const useStore = create((set, get) => ({
 
   initGuest: async () => {
     try {
-      const res = await fetch(`${API_BASE}/auth/init-guest`, { method: 'POST' })
+      const res = await apiFetch(`${API_BASE}/auth/init-guest`, { method: 'POST' })
       const d = await res.json()
       get().setUser(d)
       return d
@@ -296,7 +299,7 @@ export const useStore = create((set, get) => ({
 
   fetchUser: async (username) => {
     try {
-      const res = await fetch(`${API_BASE}/auth/me/${username}`)
+      const res = await apiFetch(username ? `${API_BASE}/auth/me/${username}` : `${API_BASE}/auth/me`)
       const d = await res.json()
       if (res.ok) {
         get().setUser(d)
@@ -308,7 +311,7 @@ export const useStore = create((set, get) => ({
 
   deleteAccount: async (real_username, password, username) => {
     try {
-      const res = await fetch(`${API_BASE}/auth/delete-account`, {
+      const res = await apiFetch(`${API_BASE}/auth/delete-account`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ real_username, password, username }),
@@ -328,7 +331,7 @@ export const useStore = create((set, get) => ({
     if (feedFilter.countryCode) url += `country_code=${encodeURIComponent(feedFilter.countryCode)}&`
     if (user.id) url += `current_user_id=${user.id}`
     try {
-      const res = await fetch(url)
+      const res = await apiFetch(url)
       const d = await res.json()
       if (res.ok) {
         const nextEssays = d.essays || []
@@ -345,7 +348,7 @@ export const useStore = create((set, get) => ({
     const currentYear = new Date().getFullYear()
     set({ feedYearCountsLoading: true })
     try {
-      const res = await fetch(`${API_BASE}/essays/year-counts?start_year=${currentYear}&end_year=${currentYear + 100}`)
+      const res = await apiFetch(`${API_BASE}/essays/year-counts?start_year=${currentYear}&end_year=${currentYear + 100}`)
       const d = await res.json()
       set({ feedYearCounts: d.counts || [], feedYearCountsLoading: false })
     } catch (e) {
@@ -357,7 +360,7 @@ export const useStore = create((set, get) => ({
   fetchUserEssays: async (username) => {
     let url = `${API_BASE}/essays?username=${encodeURIComponent(username)}`
     try {
-      const res = await fetch(url)
+      const res = await apiFetch(url)
       const d = await res.json()
       return d.essays || []
     } catch (e) { console.error(e); return [] }
@@ -393,7 +396,7 @@ export const useStore = create((set, get) => ({
       essaysTotal: state.essaysTotal + 1,
     }))
     try {
-      const res = await fetch(`${API_BASE}/essays`, {
+      const res = await apiFetch(`${API_BASE}/essays`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...essayData, username: user.username }),
@@ -429,7 +432,7 @@ export const useStore = create((set, get) => ({
     const { user } = get()
     if (!user.username) return null
     try {
-      const res = await fetch(`${API_BASE}/essays/${essayId}/vote`, {
+      const res = await apiFetch(`${API_BASE}/essays/${essayId}/vote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: user.username, value }),
@@ -446,7 +449,7 @@ export const useStore = create((set, get) => ({
     const { user } = get()
     set({ searchQuery: query.trim(), isSearching: true, searchError: null })
     try {
-      const res = await fetch(`${API_BASE}/essays/search`, {
+      const res = await apiFetch(`${API_BASE}/essays/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: query.trim(), current_user_id: user.id || undefined }),
@@ -471,8 +474,8 @@ export const useStore = create((set, get) => ({
       return []
     }
     try {
-      const params = new URLSearchParams({ username: user.username, q: query.trim() })
-      const res = await fetch(`${API_BASE}/messages/users/search?${params.toString()}`)
+      const params = new URLSearchParams({ q: query.trim() })
+      const res = await apiFetch(`${API_BASE}/messages/users/search?${params.toString()}`)
       const d = await res.json()
       const results = res.ok ? (d.users || []) : []
       set({ messageSearchResults: results })
@@ -490,8 +493,7 @@ export const useStore = create((set, get) => ({
     if (!user.username) return null
     set({ messagesLoading: true, messagesError: null })
     try {
-      const params = new URLSearchParams({ username: user.username })
-      const res = await fetch(`${API_BASE}/messages?${params.toString()}`)
+      const res = await apiFetch(`${API_BASE}/messages`)
       const d = await res.json()
       if (res.ok) {
         const home = {
@@ -513,10 +515,10 @@ export const useStore = create((set, get) => ({
   createMessageRequest: async (receiverUsername, note = '') => {
     const { user } = get()
     try {
-      const res = await fetch(`${API_BASE}/messages/requests`, {
+      const res = await apiFetch(`${API_BASE}/messages/requests`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: user.username, receiver_username: receiverUsername, note }),
+        body: JSON.stringify({ receiver_username: receiverUsername, note }),
       })
       const d = await res.json()
       if (res.ok) {
@@ -532,10 +534,10 @@ export const useStore = create((set, get) => ({
   acceptMessageRequest: async (requestId) => {
     const { user } = get()
     try {
-      const res = await fetch(`${API_BASE}/messages/requests/${requestId}/accept`, {
+      const res = await apiFetch(`${API_BASE}/messages/requests/${requestId}/accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: user.username }),
+        body: JSON.stringify({}),
       })
       const d = await res.json()
       if (res.ok) {
@@ -551,10 +553,10 @@ export const useStore = create((set, get) => ({
   deleteMessageRequest: async (requestId) => {
     const { user } = get()
     try {
-      const res = await fetch(`${API_BASE}/messages/requests/${requestId}`, {
+      const res = await apiFetch(`${API_BASE}/messages/requests/${requestId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: user.username }),
+        body: JSON.stringify({}),
       })
       const d = await res.json()
       if (res.ok) {
@@ -570,8 +572,7 @@ export const useStore = create((set, get) => ({
   fetchConversation: async (conversationId) => {
     const { user } = get()
     try {
-      const params = new URLSearchParams({ username: user.username })
-      const res = await fetch(`${API_BASE}/messages/threads/${conversationId}?${params.toString()}`)
+      const res = await apiFetch(`${API_BASE}/messages/threads/${conversationId}`)
       const d = await res.json()
       if (res.ok) return { success: true, conversation: await decryptConversation(d.conversation, user) }
       return { success: false, error: d.error || 'Conversation not found' }
@@ -587,15 +588,13 @@ export const useStore = create((set, get) => ({
       let astrPacket = null
       if (sendConversation) {
         try {
-          const params = new URLSearchParams({ username: user.username })
-          const refreshRes = await fetch(`${API_BASE}/messages/threads/${conversationId}?${params.toString()}`)
+          const refreshRes = await apiFetch(`${API_BASE}/messages/threads/${conversationId}`)
           const refreshData = await refreshRes.json()
           if (refreshRes.ok) sendConversation = await decryptConversation(refreshData.conversation, user)
           astrPacket = await createAstrPacket(sendConversation, user, body)
         } catch (e) {
           if (e?.code !== 'REMOTE_KEY_MISSING') throw e
-          const params = new URLSearchParams({ username: user.username })
-          const refreshRes = await fetch(`${API_BASE}/messages/threads/${conversationId}?${params.toString()}`)
+          const refreshRes = await apiFetch(`${API_BASE}/messages/threads/${conversationId}`)
           const refreshData = await refreshRes.json()
           if (!refreshRes.ok) throw e
           sendConversation = await decryptConversation(refreshData.conversation, user)
@@ -603,11 +602,10 @@ export const useStore = create((set, get) => ({
         }
       }
       if (conversation && !astrPacket) return { success: false, error: 'Secure session could not be created' }
-      const res = await fetch(`${API_BASE}/messages/threads/${conversationId}/messages`, {
+      const res = await apiFetch(`${API_BASE}/messages/threads/${conversationId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: user.username,
           body: astrPacket ? '' : body,
           client_nonce: clientNonce,
           astr_packet: astrPacket,
@@ -630,6 +628,9 @@ export const useStore = create((set, get) => ({
         return { success: false, error: 'Your secure key could not be uploaded. Try again.' }
       }
       if (e instanceof AstrClientError) {
+        if (e.code === 'IDENTITY_KEY_CHANGED') {
+          return { success: false, error: 'Secure identity changed. Review security details before sending.' }
+        }
         if (e.code === 'SECURE_STATE_MISMATCH') {
           return { success: false, error: 'Secure state mismatch. Refresh the conversation and try again.' }
         }
@@ -643,10 +644,9 @@ export const useStore = create((set, get) => ({
     const { user } = get()
     try {
       const form = new FormData()
-      form.append('username', user.username)
       form.append('client_nonce', clientNonce)
       form.append('file', file)
-      const res = await fetch(`${API_BASE}/messages/threads/${conversationId}/media`, {
+      const res = await apiFetch(`${API_BASE}/messages/threads/${conversationId}/media`, {
         method: 'POST',
         body: form,
       })
@@ -670,10 +670,10 @@ export const useStore = create((set, get) => ({
       : `${API_BASE}/messages/threads/${conversationId}`
     const method = action === 'delete' ? 'DELETE' : 'POST'
     try {
-      const res = await fetch(path, {
+      const res = await apiFetch(path, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: user.username }),
+        body: JSON.stringify({}),
       })
       const d = await res.json()
       if (res.ok) {
@@ -696,8 +696,7 @@ export const useStore = create((set, get) => ({
     if (!user.username) return null
     set({ chatroomLoading: true, chatroomError: null })
     try {
-      const params = new URLSearchParams({ username: user.username })
-      const res = await fetch(`${API_BASE}/messages/chatroom?${params.toString()}`)
+      const res = await apiFetch(`${API_BASE}/messages/chatroom`)
       const d = await res.json()
       if (res.ok) {
         set({
@@ -731,10 +730,10 @@ export const useStore = create((set, get) => ({
         sending_status: 'sending',
       }
       set((state) => ({ chatroomMessages: [...state.chatroomMessages, optimisticMessage] }))
-      const res = await fetch(`${API_BASE}/messages/chatroom/messages`, {
+      const res = await apiFetch(`${API_BASE}/messages/chatroom/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: user.username, body, client_nonce: clientNonce }),
+        body: JSON.stringify({ body, client_nonce: clientNonce }),
       })
       const d = await res.json()
       if (res.ok) {
@@ -763,7 +762,7 @@ export const useStore = create((set, get) => ({
 
   fetchNotificationKey: async () => {
     try {
-      const res = await fetch(`${API_BASE}/notifications/vapid-public-key`)
+      const res = await apiFetch(`${API_BASE}/notifications/vapid-public-key`)
       const d = await res.json()
       return { success: res.ok, configured: d.configured, publicKey: d.public_key }
     } catch (e) {
@@ -774,10 +773,10 @@ export const useStore = create((set, get) => ({
   savePushSubscription: async (subscription) => {
     const { user } = get()
     try {
-      const res = await fetch(`${API_BASE}/notifications/subscriptions`, {
+      const res = await apiFetch(`${API_BASE}/notifications/subscriptions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: user.username, subscription }),
+        body: JSON.stringify({ subscription }),
       })
       const d = await res.json()
       return { success: res.ok, configured: d.configured, error: d.error }
@@ -789,10 +788,10 @@ export const useStore = create((set, get) => ({
   deletePushSubscription: async (endpoint) => {
     const { user } = get()
     try {
-      const res = await fetch(`${API_BASE}/notifications/subscriptions`, {
+      const res = await apiFetch(`${API_BASE}/notifications/subscriptions`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: user.username, endpoint }),
+        body: JSON.stringify({ endpoint }),
       })
       const d = await res.json()
       return { success: res.ok, error: d.error }

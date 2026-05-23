@@ -1,4 +1,9 @@
-from flask import Blueprint, request, jsonify
+import hmac
+import secrets
+
+from flask import Blueprint, jsonify, request, session
+from werkzeug.exceptions import HTTPException
+
 from backend.models import User, db
 from backend.services.account_cleanup import delete_transient_account, scrub_registered_account, touch_user
 from datetime import datetime
@@ -8,6 +13,9 @@ import os
 auth_bp = Blueprint('wff_auth', __name__)
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+SESSION_USER_ID_KEY = 'wff_user_id'
+SESSION_CSRF_KEY = 'wff_csrf_token'
+UNSAFE_METHODS = {'POST', 'PUT', 'PATCH', 'DELETE'}
 
 def load_words(filename):
     path = os.path.join(CURRENT_DIR, '..', 'data', filename)
@@ -43,6 +51,63 @@ SECURITY_QUESTIONS = [
     "What was the name of your first pet?",
     "What was the name of your favorite teacher?",
 ]
+
+
+class JsonAuthError(HTTPException):
+    code = 401
+    description = 'Authentication required'
+
+    def __init__(self, description=None, code=None):
+        super().__init__(description=description or self.description)
+        if code is not None:
+            self.code = code
+
+
+def session_payload(user):
+    token = session.get(SESSION_CSRF_KEY)
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session[SESSION_CSRF_KEY] = token
+    return {**user.to_dict(), 'csrf_token': token}
+
+
+def start_user_session(user):
+    session.clear()
+    session.permanent = True
+    session[SESSION_USER_ID_KEY] = user.id
+    session[SESSION_CSRF_KEY] = secrets.token_urlsafe(32)
+    return session_payload(user)
+
+
+def clear_user_session():
+    session.clear()
+
+
+def current_session_user():
+    user_id = session.get(SESSION_USER_ID_KEY)
+    if not user_id:
+        return None
+    return db.session.get(User, user_id)
+
+
+def require_current_user():
+    user = current_session_user()
+    if not user:
+        raise JsonAuthError()
+
+    if request.method in UNSAFE_METHODS:
+        expected = session.get(SESSION_CSRF_KEY)
+        provided = request.headers.get('X-CSRF-Token', '')
+        if not expected or not provided or not hmac.compare_digest(expected, provided):
+            raise JsonAuthError('CSRF token missing or invalid', code=403)
+
+    touch_user(user)
+    return user
+
+
+@auth_bp.app_errorhandler(JsonAuthError)
+def handle_json_auth_error(exc):
+    return jsonify({'error': exc.description}), exc.code
 
 @auth_bp.route('/security-questions', methods=['GET'])
 def get_security_questions():
@@ -95,7 +160,7 @@ def register():
     db.session.add(user)
     db.session.commit()
 
-    return jsonify(user.to_dict()), 201
+    return jsonify(start_user_session(user)), 201
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
@@ -112,7 +177,13 @@ def login():
 
     touch_user(user)
     db.session.commit()
-    return jsonify(user.to_dict())
+    return jsonify(start_user_session(user))
+
+
+@auth_bp.route('/logout', methods=['POST'])
+def logout():
+    clear_user_session()
+    return jsonify({'message': 'Logged out'})
 
 @auth_bp.route('/forgot-password', methods=['POST'])
 def forgot_password():
@@ -204,6 +275,13 @@ def get_user(username):
     db.session.commit()
     return jsonify(user.to_dict())
 
+
+@auth_bp.route('/me', methods=['GET'])
+def get_current_session_user():
+    user = require_current_user()
+    db.session.commit()
+    return jsonify(session_payload(user))
+
 @auth_bp.route('/init-guest', methods=['POST'])
 def init_guest():
     username = f"Guest{random.randint(1000, 9999)}"
@@ -214,7 +292,7 @@ def init_guest():
     db.session.add(user)
     db.session.commit()
 
-    return jsonify(user.to_dict())
+    return jsonify(start_user_session(user))
 
 @auth_bp.route('/generate-username', methods=['GET'])
 def generate_username_endpoint():

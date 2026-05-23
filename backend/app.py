@@ -1,5 +1,6 @@
 import os
 import sys
+from datetime import timedelta
 from flask import Flask, send_from_directory, jsonify
 from flask_cors import CORS
 
@@ -43,11 +44,16 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
     app.config['SQLALCHEMY_BINDS'] = {'wff': f'sqlite:///{db_path}'}
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SECRET_KEY'] = os.environ.get('WFF_SECRET_KEY', 'wff-dev-session-secret-change-me')
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['SESSION_COOKIE_SECURE'] = os.environ.get('WFF_SESSION_COOKIE_SECURE', 'false').lower() == 'true'
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
     base_dir = os.path.dirname(os.path.abspath(__file__))
     app.config['STATIC_FOLDER'] = os.path.join(base_dir, '..', 'frontend', 'dist')
 
-    CORS(app)
+    CORS(app, supports_credentials=True)
     db.init_app(app)
     socketio.init_app(app)
     app.wsgi_app = BasePathMiddleware(app.wsgi_app, APP_BASE_PATH)
