@@ -65,6 +65,7 @@ export const useStore = create((set, get) => ({
   messageSearchResults: [],
   messagesHome: { pendingOutgoing: [], pendingIncoming: [], threads: [] },
   chatroomMessages: [],
+  chatroomStats: { activeUsers: 0, totalUsers: 0 },
   chatroomLoading: false,
   chatroomError: null,
   messagesLoading: false,
@@ -161,6 +162,21 @@ export const useStore = create((set, get) => ({
           threads: state.messagesHome.threads.filter((item) => String(item.id) !== String(conversationId)),
         },
         lastRealtimeEvent: { type: 'thread_removed', payload, receivedAt: Date.now() },
+      }))
+    })
+    socket.on('media_deleted', (payload) => {
+      const conversationId = payload.conversation_id
+      const messageId = payload.message_id
+      set((state) => ({
+        messagesHome: {
+          ...state.messagesHome,
+          threads: state.messagesHome.threads.map((thread) =>
+            String(thread.id) === String(conversationId)
+              ? { ...thread, last_message: thread.last_message?.id === messageId ? null : thread.last_message }
+              : thread
+          ),
+        },
+        lastRealtimeEvent: { type: 'media_deleted', payload, receivedAt: Date.now() },
       }))
     })
     socket.on('chatroom_message_created', (payload) => {
@@ -623,6 +639,28 @@ export const useStore = create((set, get) => ({
     }
   },
 
+  uploadConversationMedia: async (conversationId, file, clientNonce) => {
+    const { user } = get()
+    try {
+      const form = new FormData()
+      form.append('username', user.username)
+      form.append('client_nonce', clientNonce)
+      form.append('file', file)
+      const res = await fetch(`${API_BASE}/messages/threads/${conversationId}/media`, {
+        method: 'POST',
+        body: form,
+      })
+      const d = await res.json()
+      if (res.ok) {
+        await get().fetchMessagesHome()
+        return { success: true, message: d.message }
+      }
+      return { success: false, error: d.error || 'Media could not be sent' }
+    } catch (e) {
+      return { success: false, error: 'Network error' }
+    }
+  },
+
   closeConversation: async (conversationId, action = 'delete') => {
     const { user } = get()
     const path = action === 'block'
@@ -662,7 +700,14 @@ export const useStore = create((set, get) => ({
       const res = await fetch(`${API_BASE}/messages/chatroom?${params.toString()}`)
       const d = await res.json()
       if (res.ok) {
-        set({ chatroomMessages: d.messages || [], chatroomLoading: false })
+        set({
+          chatroomMessages: d.messages || [],
+          chatroomStats: {
+            activeUsers: d.stats?.active_users || 0,
+            totalUsers: d.stats?.total_users || 0,
+          },
+          chatroomLoading: false,
+        })
         return d.messages || []
       }
       set({ chatroomError: d.error || 'Chatroom could not be loaded', chatroomLoading: false })

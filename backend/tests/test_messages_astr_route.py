@@ -1,4 +1,6 @@
 import unittest
+from io import BytesIO
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from flask import Flask
@@ -42,7 +44,9 @@ def make_packet(conversation, direction='one_to_two', counter=0, prev_hash=ZERO_
 
 class PrivateMessageAstrRouteTest(unittest.TestCase):
     def setUp(self):
+        self.media_dir = TemporaryDirectory()
         self.app = make_app()
+        self.app.config['WFF_MEDIA_UPLOAD_FOLDER'] = self.media_dir.name
         self.client = self.app.test_client()
         with self.app.app_context():
             alice = User(username='alice', real_username='alice', birthdate='1990-01-01', is_bengali=True, is_guest=False)
@@ -59,12 +63,14 @@ class PrivateMessageAstrRouteTest(unittest.TestCase):
             db.session.add(conversation)
             db.session.commit()
             self.alice_id = alice.id
+            self.bob_id = bob.id
             self.conversation_id = conversation.id
 
     def tearDown(self):
         with self.app.app_context():
             db.session.remove()
             db.drop_all()
+        self.media_dir.cleanup()
 
     def test_private_message_without_astr_packet_is_rejected(self):
         response = self.client.post(f'/messages/threads/{self.conversation_id}/messages', json={
@@ -125,6 +131,31 @@ class PrivateMessageAstrRouteTest(unittest.TestCase):
                 'counters': {'one_to_two': 1, 'two_to_one': 0},
                 'previous_chain_lengths': {'one_to_two': 1, 'two_to_one': 0},
             }))
+
+    def test_media_upload_and_open_count_excludes_sender(self):
+        with patch('backend.routes.messages.send_message_notification'), patch('backend.routes.messages.emit_to_user'):
+            response = self.client.post(
+                f'/messages/threads/{self.conversation_id}/media',
+                data={
+                    'username': 'alice',
+                    'client_nonce': 'media-nonce',
+                    'file': (BytesIO(b'image-bytes'), 'photo.png'),
+                },
+                content_type='multipart/form-data',
+            )
+
+        self.assertEqual(response.status_code, 201)
+        message_id = response.get_json()['message']['id']
+        sender_open = self.client.get(f'/messages/media/{message_id}?username=alice')
+        recipient_open = self.client.get(f'/messages/media/{message_id}?username=bob')
+
+        self.assertEqual(sender_open.status_code, 200)
+        self.assertEqual(recipient_open.status_code, 200)
+        sender_open.close()
+        recipient_open.close()
+        with self.app.app_context():
+            message = db.session.get(Message, message_id)
+            self.assertEqual(message.media_open_count, 1)
 
 
 if __name__ == '__main__':

@@ -23,6 +23,7 @@ function formatTime(value) {
 export default function Chatroom() {
   const {
     chatroomMessages,
+    chatroomStats,
     chatroomLoading,
     chatroomError,
     fetchChatroom,
@@ -56,8 +57,16 @@ export default function Chatroom() {
   return (
     <div className="flex h-[calc(100dvh-17rem)] min-h-[24rem] flex-col overflow-hidden border-t border-dark-border bg-transparent">
       <div className="shrink-0 border-b border-dark-border px-4 py-3">
-        <h2 className="text-base font-medium text-gray-100">Chatroom</h2>
-        <p className="mt-1 text-xs text-gray-500">Open room for registered users</p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-base font-medium text-gray-100">Chatroom</h2>
+            <p className="mt-1 text-xs text-gray-500">Open room for registered users</p>
+          </div>
+          <div className="shrink-0 text-right leading-none">
+            <p className="text-sm font-semibold text-primary">{chatroomStats.activeUsers}</p>
+            <p className="mt-1 text-sm font-semibold text-gray-500">{chatroomStats.totalUsers}</p>
+          </div>
+        </div>
       </div>
 
       {(error || chatroomError) && (

@@ -1,9 +1,20 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from importlib.util import find_spec
+import os
 from werkzeug.security import generate_password_hash, check_password_hash
 
 try:
-    from models import db as host_db
+    host_models_spec = find_spec('models')
+    same_file = (
+        host_models_spec
+        and host_models_spec.origin
+        and os.path.abspath(host_models_spec.origin) == os.path.abspath(__file__)
+    )
+    if same_file:
+        host_db = None
+    else:
+        from models import db as host_db
 except Exception:
     host_db = None
 
@@ -249,6 +260,13 @@ class Message(db.Model):
     auth_tag = db.Column(db.String(64), nullable=True)
     packet_status = db.Column(db.String(32), nullable=False, default='accepted')
     failure_reason = db.Column(db.Text, nullable=True)
+    media_filename = db.Column(db.String(255), nullable=True)
+    media_stored_filename = db.Column(db.String(255), nullable=True)
+    media_mime_type = db.Column(db.String(120), nullable=True)
+    media_size = db.Column(db.Integer, nullable=True)
+    media_kind = db.Column(db.String(24), nullable=True)
+    media_open_count = db.Column(db.Integer, nullable=False, default=0)
+    media_expires_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     sender = db.relationship('backend.models.User', foreign_keys=[sender_id])

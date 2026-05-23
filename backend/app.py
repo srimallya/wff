@@ -10,7 +10,7 @@ if PROJECT_ROOT not in sys.path:
 from backend.models import db
 from backend.routes.auth import auth_bp
 from backend.routes.essays import essays_bp
-from backend.routes.messages import messages_bp
+from backend.routes.messages import cleanup_expired_media, messages_bp
 from backend.routes.notifications import notifications_bp
 from backend.routes.proposals import proposals_bp
 from backend.services.account_cleanup import cleanup_inactive_accounts
@@ -61,6 +61,7 @@ def create_app():
     with app.app_context():
         db.create_all()
         ensure_schema()
+        cleanup_expired_media()
         cleanup_inactive_accounts()
 
     @app.route('/api/health')

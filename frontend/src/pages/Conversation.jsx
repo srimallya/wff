@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../store/zustandStore'
 import { IconButton } from '../components/Icons'
+import { API_BASE } from '../api'
 
 const APP_TIME_ZONE = 'Asia/Kolkata'
 const SERVER_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/
@@ -78,22 +79,60 @@ function displayMessageBody(body) {
   return (body || '').replace(/^Reply to\s+[^:\n]+:\s*/i, 'Reply to: ')
 }
 
+function mediaUrl(message, username) {
+  const path = message?.media?.url
+  if (!path || !username) return ''
+  return `${API_BASE}${path}?username=${encodeURIComponent(username)}`
+}
+
+function formatBytes(value) {
+  if (!value) return ''
+  if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`
+  return `${(value / 1024 / 1024).toFixed(1)} MB`
+}
+
+function mediaLabel(media) {
+  if (!media) return ''
+  if (media.kind === 'image') return 'Image'
+  if (media.kind === 'audio') return 'Voice note'
+  if (media.kind === 'video') return 'Video'
+  return media.filename || 'File'
+}
+
+function uniqueMessages(items) {
+  const seen = new Set()
+  return items.filter((item) => {
+    const key = item.client_nonce || item.id
+    if (seen.has(String(key))) return false
+    seen.add(String(key))
+    return true
+  })
+}
+
 export default function Conversation() {
   const { conversationId } = useParams()
   const navigate = useNavigate()
-  const { user, fetchConversation, sendConversationMessage, closeConversation, lastRealtimeEvent, joinConversation } = useStore()
+  const { user, fetchConversation, sendConversationMessage, uploadConversationMedia, closeConversation, lastRealtimeEvent, joinConversation } = useStore()
   const [conversation, setConversation] = useState(null)
   const [body, setBody] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [sending, setSending] = useState(false)
+  const [mediaSending, setMediaSending] = useState(false)
   const [actionsOpen, setActionsOpen] = useState(false)
   const [closingAction, setClosingAction] = useState('')
   const [nicknames, setNicknames] = useState(() => loadNicknames())
   const [nicknameDraft, setNicknameDraft] = useState('')
   const [replyTo, setReplyTo] = useState(null)
+  const [inputFocused, setInputFocused] = useState(false)
+  const [mediaPreview, setMediaPreview] = useState(null)
+  const [recording, setRecording] = useState(false)
   const scrollRef = useRef(null)
   const bottomRef = useRef(null)
+  const fileInputRef = useRef(null)
+  const imageInputRef = useRef(null)
+  const recorderRef = useRef(null)
+  const audioChunksRef = useRef([])
 
   const otherUsername = conversation?.other_user?.username || ''
   const otherDisplayName = useMemo(() => displayNameFor(otherUsername, nicknames), [otherUsername, nicknames])
@@ -141,6 +180,17 @@ export default function Conversation() {
       navigate('/messages')
     }
   }, [lastRealtimeEvent, conversationId, navigate])
+
+  useEffect(() => {
+    if (!lastRealtimeEvent || lastRealtimeEvent.type !== 'media_deleted') return
+    if (String(lastRealtimeEvent.payload?.conversation_id) !== String(conversationId)) return
+    setConversation((current) => ({
+      ...current,
+      messages: (current?.messages || []).filter((message) =>
+        String(message.id) !== String(lastRealtimeEvent.payload?.message_id)
+      ),
+    }))
+  }, [lastRealtimeEvent, conversationId])
 
   const handleConversationAction = async (action) => {
     setError('')
@@ -226,6 +276,72 @@ export default function Conversation() {
     }
   }
 
+  const handleUploadFile = async (file) => {
+    if (!file || mediaSending) return
+    setError('')
+    setMediaSending(true)
+    const clientNonce = `${Date.now()}-${Math.random().toString(16).slice(2)}`
+    const result = await uploadConversationMedia(conversationId, file, clientNonce)
+    setMediaSending(false)
+    if (result.success) {
+      setConversation((current) => ({
+        ...current,
+        messages: uniqueMessages([...(current?.messages || []), { ...result.message, sending_status: 'sent' }]),
+      }))
+    } else {
+      setError(result.error)
+    }
+  }
+
+  const handleFileInput = (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    handleUploadFile(file)
+  }
+
+  const startRecording = async () => {
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setError('Voice recording is not supported in this browser')
+      return
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      audioChunksRef.current = []
+      const recorder = new MediaRecorder(stream)
+      recorderRef.current = recorder
+      recorder.ondataavailable = (event) => {
+        if (event.data?.size) audioChunksRef.current.push(event.data)
+      }
+      recorder.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop())
+        const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+        if (blob.size) {
+          const file = new File([blob], `voice-note-${Date.now()}.webm`, { type: blob.type || 'audio/webm' })
+          handleUploadFile(file)
+        }
+      }
+      recorder.start()
+      setRecording(true)
+    } catch (e) {
+      setError('Microphone permission is required for voice notes')
+    }
+  }
+
+  const stopRecording = () => {
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
+    setRecording(false)
+  }
+
+  const openMedia = (message) => {
+    const url = mediaUrl(message, user.username)
+    if (!url) return
+    if (['image', 'video'].includes(message.media?.kind)) {
+      setMediaPreview({ message, url })
+      return
+    }
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' })
   }, [conversation?.messages?.length, conversation?.id])
@@ -262,7 +378,11 @@ export default function Conversation() {
           <div className="flex flex-1 items-center justify-center text-gray-500">Loading...</div>
         ) : conversation ? (
           <>
-            <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+            <div
+              ref={scrollRef}
+              onPointerDown={() => setInputFocused(false)}
+              className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4"
+            >
               {conversation.messages.length === 0 ? (
                 <div className="flex h-full items-center justify-center text-sm text-gray-500">
                   No messages yet
@@ -281,8 +401,7 @@ export default function Conversation() {
                         </div>
                       )}
                       <div className={`flex ${message.is_mine ? 'justify-end' : 'justify-start'}`}>
-                        <button
-                          type="button"
+                        <div
                           onClick={() => setReplyTo(message)}
                           className={`max-w-[78%] px-0 py-3 text-sm ${
                             message.is_mine
@@ -298,7 +417,38 @@ export default function Conversation() {
                               )}
                             </p>
                           )}
-                          <p className="whitespace-pre-wrap break-words">{displayMessageBody(message.body)}</p>
+                          {message.body && (
+                            <p className="whitespace-pre-wrap break-words">{displayMessageBody(message.body)}</p>
+                          )}
+                          {message.media && (
+                            <div
+                              className="mt-1"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              {message.media.kind === 'audio' ? (
+                                <div className="space-y-2">
+                                  <p className="text-xs text-gray-500">{mediaLabel(message.media)} · {formatBytes(message.media.size)}</p>
+                                  <audio
+                                    controls
+                                    preload="none"
+                                    src={mediaUrl(message, user.username)}
+                                    className="w-[16rem] max-w-full"
+                                  />
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => openMedia(message)}
+                                  className={`block max-w-full text-left ${message.is_mine ? 'text-primary' : 'text-gray-100'}`}
+                                >
+                                  <span className="inline-flex max-w-full items-center gap-2 border-b border-dark-border py-2">
+                                    <span className="truncate">{mediaLabel(message.media)}</span>
+                                    <span className="shrink-0 text-xs text-gray-500">{formatBytes(message.media.size)}</span>
+                                  </span>
+                                </button>
+                              )}
+                            </div>
+                          )}
                           <div className="mt-1 flex items-center justify-end gap-1 text-[11px] text-gray-500">
                             <span>{formatMessageTime(message.created_at)}</span>
                             <span aria-label={message.is_mine ? 'Read' : 'Received'}>
@@ -311,7 +461,7 @@ export default function Conversation() {
                                 : '✓'}
                             </span>
                           </div>
-                        </button>
+                        </div>
                       </div>
                     </div>
                   )
@@ -324,6 +474,8 @@ export default function Conversation() {
               onSubmit={handleSubmit}
               className="sticky bottom-0 flex shrink-0 gap-5 border-t border-dark-border bg-dark-bg/95 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur"
             >
+              <input ref={imageInputRef} type="file" accept="image/*,video/*" onChange={handleFileInput} className="hidden" />
+              <input ref={fileInputRef} type="file" onChange={handleFileInput} className="hidden" />
               {replyTo && (
                 <div className="absolute bottom-full left-4 right-4 border-t border-dark-border bg-dark-bg px-0 py-2 text-xs text-gray-500">
                   <div className="flex items-center justify-between gap-3">
@@ -334,10 +486,39 @@ export default function Conversation() {
                   </div>
                 </div>
               )}
+              {!inputFocused && (
+                <div className="flex shrink-0 items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={mediaSending || recording}
+                    className="text-sm font-medium text-gray-400 disabled:opacity-50"
+                  >
+                    Photo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={mediaSending || recording}
+                    className="text-sm font-medium text-gray-400 disabled:opacity-50"
+                  >
+                    File
+                  </button>
+                  <button
+                    type="button"
+                    onClick={recording ? stopRecording : startRecording}
+                    disabled={mediaSending}
+                    className={`text-sm font-medium disabled:opacity-50 ${recording ? 'text-primary' : 'text-gray-400'}`}
+                  >
+                    {recording ? 'Stop' : 'Voice'}
+                  </button>
+                </div>
+              )}
               <input
                 type="text"
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
+                onFocus={() => setInputFocused(true)}
                 placeholder="Write a message..."
                 className="min-w-0 flex-1 border-0 border-b px-0 py-3 text-sm focus:outline-none focus:border-primary"
               />
@@ -352,6 +533,41 @@ export default function Conversation() {
           </>
         ) : null}
       </main>
+
+      {mediaPreview && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/85 p-4">
+          <button
+            type="button"
+            aria-label="Close media"
+            onClick={() => setMediaPreview(null)}
+            className="absolute inset-0"
+          />
+          <div className="relative max-h-full w-full max-w-4xl bg-dark-bg p-3 shadow-2xl" style={{ borderRadius: '8px' }}>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="min-w-0 truncate text-sm text-gray-400">
+                {mediaPreview.message.media?.filename || mediaLabel(mediaPreview.message.media)}
+              </p>
+              <IconButton type="button" onClick={() => setMediaPreview(null)} icon="close" label="Close" />
+            </div>
+            {mediaPreview.message.media?.kind === 'video' ? (
+              <video
+                controls
+                autoPlay
+                src={mediaPreview.url}
+                className="max-h-[78dvh] w-full bg-black object-contain p-1"
+                style={{ borderRadius: '8px' }}
+              />
+            ) : (
+              <img
+                src={mediaPreview.url}
+                alt={mediaPreview.message.media?.filename || 'Shared image'}
+                className="max-h-[78dvh] w-full bg-black object-contain p-1"
+                style={{ borderRadius: '8px' }}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {actionsOpen && conversation && (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/60 px-4 py-4 sm:items-center">

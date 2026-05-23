@@ -49,6 +49,13 @@ def ensure_schema():
         'auth_tag': 'VARCHAR(64)',
         'packet_status': 'VARCHAR(32) NOT NULL DEFAULT "accepted"',
         'failure_reason': 'TEXT',
+        'media_filename': 'VARCHAR(255)',
+        'media_stored_filename': 'VARCHAR(255)',
+        'media_mime_type': 'VARCHAR(120)',
+        'media_size': 'INTEGER',
+        'media_kind': 'VARCHAR(24)',
+        'media_open_count': 'INTEGER NOT NULL DEFAULT 0',
+        'media_expires_at': 'DATETIME',
     }
     for column_name, column_type in message_additions.items():
         if column_name not in message_columns:
