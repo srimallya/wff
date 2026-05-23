@@ -129,8 +129,7 @@ export default function Conversation() {
   const [recording, setRecording] = useState(false)
   const scrollRef = useRef(null)
   const bottomRef = useRef(null)
-  const fileInputRef = useRef(null)
-  const imageInputRef = useRef(null)
+  const mediaInputRef = useRef(null)
   const recorderRef = useRef(null)
   const audioChunksRef = useRef([])
 
@@ -474,8 +473,7 @@ export default function Conversation() {
               onSubmit={handleSubmit}
               className="sticky bottom-0 flex shrink-0 gap-5 border-t border-dark-border bg-dark-bg/95 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur"
             >
-              <input ref={imageInputRef} type="file" accept="image/*,video/*" onChange={handleFileInput} className="hidden" />
-              <input ref={fileInputRef} type="file" onChange={handleFileInput} className="hidden" />
+              <input ref={mediaInputRef} type="file" onChange={handleFileInput} className="hidden" />
               {replyTo && (
                 <div className="absolute bottom-full left-4 right-4 border-t border-dark-border bg-dark-bg px-0 py-2 text-xs text-gray-500">
                   <div className="flex items-center justify-between gap-3">
@@ -490,19 +488,11 @@ export default function Conversation() {
                 <div className="flex shrink-0 items-center gap-4">
                   <button
                     type="button"
-                    onClick={() => imageInputRef.current?.click()}
+                    onClick={() => mediaInputRef.current?.click()}
                     disabled={mediaSending || recording}
                     className="text-sm font-medium text-gray-400 disabled:opacity-50"
                   >
-                    Photo
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={mediaSending || recording}
-                    className="text-sm font-medium text-gray-400 disabled:opacity-50"
-                  >
-                    File
+                    Media
                   </button>
                   <button
                     type="button"
@@ -542,11 +532,8 @@ export default function Conversation() {
             onClick={() => setMediaPreview(null)}
             className="absolute inset-0"
           />
-          <div className="relative max-h-full w-full max-w-4xl bg-dark-bg p-3 shadow-2xl" style={{ borderRadius: '8px' }}>
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <p className="min-w-0 truncate text-sm text-gray-400">
-                {mediaPreview.message.media?.filename || mediaLabel(mediaPreview.message.media)}
-              </p>
+          <div className="relative max-h-full w-full max-w-4xl bg-dark-bg p-3 shadow-2xl">
+            <div className="mb-3 flex justify-end">
               <IconButton type="button" onClick={() => setMediaPreview(null)} icon="close" label="Close" />
             </div>
             {mediaPreview.message.media?.kind === 'video' ? (
@@ -555,14 +542,12 @@ export default function Conversation() {
                 autoPlay
                 src={mediaPreview.url}
                 className="max-h-[78dvh] w-full bg-black object-contain p-1"
-                style={{ borderRadius: '8px' }}
               />
             ) : (
               <img
                 src={mediaPreview.url}
                 alt={mediaPreview.message.media?.filename || 'Shared image'}
                 className="max-h-[78dvh] w-full bg-black object-contain p-1"
-                style={{ borderRadius: '8px' }}
               />
             )}
           </div>
