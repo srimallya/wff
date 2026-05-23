@@ -12,6 +12,7 @@ export default function Profile() {
   const {
     user,
     clearUser,
+    refreshSession,
     deleteAccount,
     fetchUserEssays,
     resetFeedView,
@@ -35,6 +36,7 @@ export default function Profile() {
     localStorage.getItem('wff_theme') === 'light' ? 'light' : 'dark'
   )
   const [notificationStatus, setNotificationStatus] = useState('')
+  const [sessionChecking, setSessionChecking] = useState(false)
   const canUsePrivateFeatures = Boolean(user.canPost && !user.isGuest)
 
   useEffect(() => {
@@ -45,7 +47,23 @@ export default function Profile() {
   }, [theme])
 
   useEffect(() => {
-    if (user.username && canUsePrivateFeatures) {
+    let cancelled = false
+    async function validateSession() {
+      if (!user.username || !canUsePrivateFeatures) return
+      setSessionChecking(true)
+      const result = await refreshSession()
+      if (cancelled) return
+      setSessionChecking(false)
+      if (!result.success && result.authExpired) {
+        navigate('/login')
+      }
+    }
+    validateSession()
+    return () => { cancelled = true }
+  }, [user.username, canUsePrivateFeatures, refreshSession, navigate])
+
+  useEffect(() => {
+    if (user.username && canUsePrivateFeatures && !sessionChecking) {
       setEssaysLoading(true)
       fetchUserEssays(user.username).then((essays) => {
         setMyEssays(essays)
@@ -55,7 +73,7 @@ export default function Profile() {
       setMyEssays([])
       setEssaysLoading(false)
     }
-  }, [user.username, canUsePrivateFeatures, fetchUserEssays])
+  }, [user.username, canUsePrivateFeatures, sessionChecking, fetchUserEssays])
 
   const handleLogout = () => {
     clearUser()

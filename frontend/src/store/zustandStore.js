@@ -309,6 +309,25 @@ export const useStore = create((set, get) => ({
     } catch (e) { return null }
   },
 
+  refreshSession: async () => {
+    try {
+      const res = await apiFetch(`${API_BASE}/auth/me`)
+      const d = await res.json()
+      if (res.ok) {
+        get().setUser(d)
+        if (d.can_post && !d.is_guest) await ensureKeyBundleRegistered(normalizeUser(d))
+        return { success: true, user: d }
+      }
+      if (res.status === 401) {
+        get().clearUser()
+        return { success: false, authExpired: true, error: 'Please log in again to restore your private session.' }
+      }
+      return { success: false, error: d.error || 'Session could not be restored' }
+    } catch (e) {
+      return { success: false, error: 'Network error' }
+    }
+  },
+
   deleteAccount: async (real_username, password, username) => {
     try {
       const res = await apiFetch(`${API_BASE}/auth/delete-account`, {
@@ -503,6 +522,15 @@ export const useStore = create((set, get) => ({
         }
         set({ messagesHome: home, messagesLoading: false })
         return home
+      }
+      if (res.status === 401) {
+        get().clearUser()
+        set({
+          messagesHome: { pendingOutgoing: [], pendingIncoming: [], threads: [] },
+          messagesError: 'Please log in again to restore your private session.',
+          messagesLoading: false,
+        })
+        return null
       }
       set({ messagesError: d.error || 'Messages could not be loaded', messagesLoading: false })
       return null

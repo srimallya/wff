@@ -60,6 +60,12 @@ export default function MessageHub({ showTitle = true, panel = 'all' }) {
   }, [user.username, fetchMessagesHome])
 
   useEffect(() => {
+    if (messagesError === 'Please log in again to restore your private session.') {
+      window.setTimeout(() => navigate('/login'), 0)
+    }
+  }, [messagesError, navigate])
+
+  useEffect(() => {
     setActivePanel(panel === 'all' ? 'threads' : panel)
   }, [panel])
 
