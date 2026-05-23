@@ -61,6 +61,16 @@ def ensure_schema():
         if column_name not in message_columns:
             execute(f'ALTER TABLE "wff_message" ADD COLUMN {column_name} {column_type}')
 
+    conversation_columns = {column['name'] for column in inspector.get_columns('wff_conversation')}
+    conversation_additions = {
+        'user_one_cleared_at': 'DATETIME',
+        'user_two_cleared_at': 'DATETIME',
+        'messages_purged_at': 'DATETIME',
+    }
+    for column_name, column_type in conversation_additions.items():
+        if column_name not in conversation_columns:
+            execute(f'ALTER TABLE "wff_conversation" ADD COLUMN {column_name} {column_type}')
+
     table_names = set(inspector.get_table_names())
     if 'wff_user_device_key' not in table_names:
         execute('''

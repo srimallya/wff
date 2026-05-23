@@ -58,11 +58,16 @@ export function canUseStructuralSendState(conversation) {
 }
 
 export async function verifyAstrTranscript(conversation, user, decryptMessage) {
-  const verifiedCounters = { one_to_two: 0, two_to_one: 0 }
-  const structuralCounters = { one_to_two: 0, two_to_one: 0 }
+  const initialState = conversation?.initial_transcript_state || null
+  const verifiedCounters = initialState?.verified_counters
+    ? { one_to_two: initialState.verified_counters.one_to_two || 0, two_to_one: initialState.verified_counters.two_to_one || 0 }
+    : { one_to_two: 0, two_to_one: 0 }
+  const structuralCounters = initialState?.structural_counters
+    ? { one_to_two: initialState.structural_counters.one_to_two || 0, two_to_one: initialState.structural_counters.two_to_one || 0 }
+    : { one_to_two: 0, two_to_one: 0 }
   const seenPackets = new Set()
-  let verifiedTranscriptHash = ZERO_TRANSCRIPT_HASH
-  let structuralTranscriptHash = ZERO_TRANSCRIPT_HASH
+  let verifiedTranscriptHash = initialState?.verified_transcript_hash || ZERO_TRANSCRIPT_HASH
+  let structuralTranscriptHash = initialState?.structural_transcript_hash || verifiedTranscriptHash
   let transcriptVerified = true
   let transcriptError = null
   const messages = []

@@ -564,7 +564,13 @@ export async function decryptAstrMessage(conversation, user, message) {
 export async function decryptConversation(conversation, user) {
   if (!conversation?.messages) return conversation
   await ensureKeyBundleRegistered(user)
-  const verification = await verifyAstrTranscript(conversation, user, decryptAstrMessage)
+  const existingState = conversation.locally_cleared_at && !conversation.messages_purged_at
+    ? await getAstrConversationState(conversation, user)
+    : null
+  const verificationConversation = existingState
+    ? { ...conversation, initial_transcript_state: existingState }
+    : conversation
+  const verification = await verifyAstrTranscript(verificationConversation, user, decryptAstrMessage)
   const identityState = await reconcileConversationIdentity(conversation, user, verification)
   const localState = await reconcileAstrConversationState(conversation, user, verification)
   if (localState.secure_state_mismatch) {

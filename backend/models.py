@@ -231,6 +231,9 @@ class Conversation(db.Model):
     user_one_id = db.Column(db.Integer, db.ForeignKey('wff_user.id'), nullable=False)
     user_two_id = db.Column(db.Integer, db.ForeignKey('wff_user.id'), nullable=False)
     channel_state = db.Column(db.Text, nullable=True)
+    user_one_cleared_at = db.Column(db.DateTime, nullable=True)
+    user_two_cleared_at = db.Column(db.DateTime, nullable=True)
+    messages_purged_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -167,6 +167,20 @@ export const useStore = create((set, get) => ({
         lastRealtimeEvent: { type: 'thread_removed', payload, receivedAt: Date.now() },
       }))
     })
+    socket.on('thread_cleared', (payload) => {
+      const thread = payload.thread
+      if (!thread) {
+        set({ lastRealtimeEvent: { type: 'thread_cleared', payload, receivedAt: Date.now() } })
+        return
+      }
+      set((state) => ({
+        messagesHome: {
+          ...state.messagesHome,
+          threads: uniqueById([thread, ...state.messagesHome.threads.filter((item) => String(item.id) !== String(thread.id))]),
+        },
+        lastRealtimeEvent: { type: 'thread_cleared', payload, receivedAt: Date.now() },
+      }))
+    })
     socket.on('media_deleted', (payload) => {
       const conversationId = payload.conversation_id
       const messageId = payload.message_id
@@ -705,12 +719,16 @@ export const useStore = create((set, get) => ({
       })
       const d = await res.json()
       if (res.ok) {
-        set((state) => ({
-          messagesHome: {
-            ...state.messagesHome,
-            threads: state.messagesHome.threads.filter((item) => String(item.id) !== String(conversationId)),
-          },
-        }))
+        if (action === 'delete') {
+          await get().fetchMessagesHome()
+        } else {
+          set((state) => ({
+            messagesHome: {
+              ...state.messagesHome,
+              threads: state.messagesHome.threads.filter((item) => String(item.id) !== String(conversationId)),
+            },
+          }))
+        }
         return { success: true, data: d }
       }
       return { success: false, error: d.error || 'Conversation could not be updated' }

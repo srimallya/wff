@@ -163,6 +163,72 @@ def other_user_for_conversation(conversation, current_user_id):
     return conversation.user_two if conversation.user_one_id == current_user_id else conversation.user_one
 
 
+def cleared_at_for_user(conversation, user_id):
+    if conversation.user_one_id == user_id:
+        return conversation.user_one_cleared_at
+    if conversation.user_two_id == user_id:
+        return conversation.user_two_cleared_at
+    return None
+
+
+def set_cleared_at_for_user(conversation, user_id, value):
+    if conversation.user_one_id == user_id:
+        conversation.user_one_cleared_at = value
+    elif conversation.user_two_id == user_id:
+        conversation.user_two_cleared_at = value
+
+
+def visible_message_query(conversation_id, user_id):
+    conversation = db.session.get(Conversation, conversation_id)
+    query = Message.query.filter_by(conversation_id=conversation_id)
+    cleared_at = cleared_at_for_user(conversation, user_id) if conversation else None
+    if cleared_at:
+        query = query.filter(Message.created_at > cleared_at)
+    return query
+
+
+def visible_messages_for(conversation, user_id):
+    return (
+        visible_message_query(conversation.id, user_id)
+        .order_by(Message.created_at.asc())
+        .all()
+    )
+
+
+def delete_messages_for_conversation(conversation):
+    for message in list(conversation.messages):
+        delete_media_file(message)
+        db.session.delete(message)
+
+
+def restore_expired_connections_for_user(user_id):
+    expired_requests = (
+        MessageRequest.query
+        .filter(MessageRequest.status == 'expired')
+        .filter(or_(MessageRequest.sender_id == user_id, MessageRequest.receiver_id == user_id))
+        .all()
+    )
+    restored = False
+    for message_request in expired_requests:
+        other_id = message_request.receiver_id if message_request.sender_id == user_id else message_request.sender_id
+        conversation = conversation_between(user_id, other_id)
+        if not conversation:
+            low_id, high_id = sorted([user_id, other_id])
+            conversation = Conversation(
+                user_one_id=low_id,
+                user_two_id=high_id,
+                channel_state=dump_channel_state(create_channel_state()),
+            )
+            db.session.add(conversation)
+            db.session.flush()
+        message_request.status = 'active'
+        message_request.conversation_id = conversation.id
+        message_request.updated_at = datetime.utcnow()
+        restored = True
+    if restored:
+        db.session.commit()
+
+
 def get_read_state(conversation_id, user_id):
     state = ConversationRead.query.filter_by(conversation_id=conversation_id, user_id=user_id).first()
     if state:
@@ -181,7 +247,7 @@ def mark_conversation_read(conversation_id, user_id):
 
 def unread_count_for(conversation_id, user_id):
     state = ConversationRead.query.filter_by(conversation_id=conversation_id, user_id=user_id).first()
-    query = Message.query.filter_by(conversation_id=conversation_id).filter(Message.sender_id != user_id)
+    query = visible_message_query(conversation_id, user_id).filter(Message.sender_id != user_id)
     if state and state.last_read_at:
         query = query.filter(Message.created_at > state.last_read_at)
     return query.count()
@@ -255,9 +321,9 @@ def conversation_to_dict(conversation, current_user_id, include_messages=False):
     cleanup_expired_media()
     channel_state = reconcile_channel_state(conversation)
     other = other_user_for_conversation(conversation, current_user_id)
+    cleared_at = cleared_at_for_user(conversation, current_user_id)
     last_message = (
-        Message.query
-        .filter_by(conversation_id=conversation.id)
+        visible_message_query(conversation.id, current_user_id)
         .order_by(Message.created_at.desc())
         .first()
     )
@@ -282,6 +348,7 @@ def conversation_to_dict(conversation, current_user_id, include_messages=False):
         'other_user': user_summary(other),
         'unread_count': unread_count_for(conversation.id, current_user_id),
         'last_message': {
+            'id': last_message.id,
             'body': last_message.body or (
                 f"{last_message.media_kind.capitalize()} shared"
                 if last_message.media_kind else 'New message'
@@ -289,13 +356,15 @@ def conversation_to_dict(conversation, current_user_id, include_messages=False):
             'created_at': last_message.created_at.isoformat(),
             'is_mine': last_message.sender_id == current_user_id,
         } if last_message else None,
+        'locally_cleared_at': cleared_at.isoformat() if cleared_at else None,
+        'messages_purged_at': conversation.messages_purged_at.isoformat() if conversation.messages_purged_at else None,
         'created_at': conversation.created_at.isoformat(),
         'updated_at': conversation.updated_at.isoformat(),
     }
     if include_messages:
         data['messages'] = [
             message_to_dict(message, current_user_id)
-            for message in sorted(conversation.messages, key=lambda m: m.created_at)
+            for message in visible_messages_for(conversation, current_user_id)
         ]
     return data
 
@@ -439,6 +508,41 @@ def close_conversation(conversation, current_user, status):
     return payload
 
 
+def clear_conversation_for_user(conversation, current_user):
+    if current_user.id not in [conversation.user_one_id, conversation.user_two_id]:
+        return None
+
+    now = datetime.utcnow()
+    set_cleared_at_for_user(conversation, current_user.id, now)
+    conversation.updated_at = now
+    server_messages_purged = False
+
+    if conversation.user_one_cleared_at and conversation.user_two_cleared_at:
+        delete_messages_for_conversation(conversation)
+        conversation.channel_state = dump_channel_state(create_channel_state())
+        conversation.messages_purged_at = now
+        server_messages_purged = True
+
+    db.session.commit()
+
+    participants = [conversation.user_one_id, conversation.user_two_id]
+    payload = {
+        'conversation_id': conversation.id,
+        'status': 'cleared',
+        'server_messages_purged': server_messages_purged,
+    }
+    for participant_id in participants:
+        payload_for_user = {
+            **payload,
+            'thread': conversation_to_dict(conversation, participant_id),
+        }
+        emit_to_user(participant_id, 'thread_cleared', payload_for_user)
+    return {
+        **payload,
+        'thread': conversation_to_dict(conversation, current_user.id),
+    }
+
+
 @messages_bp.route('/users/search', methods=['GET'])
 def search_users():
     current_user = require_current_user()
@@ -470,6 +574,8 @@ def get_message_home():
         return jsonify({'error': 'Valid user required'}), 400
     if not can_use_private_features(current_user):
         return private_features_error()
+
+    restore_expired_connections_for_user(current_user.id)
 
     pending_outgoing = (
         MessageRequest.query
@@ -849,7 +955,6 @@ def open_media(message_id):
 
 @messages_bp.route('/threads/<int:conversation_id>', methods=['DELETE'])
 def delete_conversation(conversation_id):
-    data = request.get_json(silent=True) or {}
     current_user = require_current_user()
     if not current_user:
         return jsonify({'error': 'Valid user required'}), 400
@@ -857,10 +962,10 @@ def delete_conversation(conversation_id):
         return private_features_error()
 
     conversation = Conversation.query.get_or_404(conversation_id)
-    payload = close_conversation(conversation, current_user, 'expired')
+    payload = clear_conversation_for_user(conversation, current_user)
     if not payload:
         return jsonify({'error': 'Conversation not found'}), 404
-    return jsonify({'deleted': True, **payload})
+    return jsonify({'cleared': True, **payload})
 
 
 @messages_bp.route('/threads/<int:conversation_id>/unfriend', methods=['POST'])

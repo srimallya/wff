@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { ASTR_VERIFY_CODES, ZERO_TRANSCRIPT_HASH } from '../astrTranscript'
+import { ASTR_VERIFY_CODES, ZERO_TRANSCRIPT_HASH, transcriptHash, verifyAstrTranscript } from '../astrTranscript'
 import {
   __resetAstrStateStoreForTests,
   computeSafetyNumber,
@@ -235,5 +235,60 @@ describe('ASTR local state store', () => {
       transcript_verified: false,
       transcript_error: ASTR_VERIFY_CODES.DEVICE_ENVELOPE_MISSING,
     })
+  })
+
+  it('allows server-purged history to reset local transcript state', async () => {
+    const first = verifiedMessage(10, 'hash-1')
+    await reconcileAstrConversationState(conversation, user, verification([first]))
+
+    const result = await reconcileAstrConversationState(
+      { ...conversation, messages_purged_at: '2026-05-24T00:00:00.000Z' },
+      user,
+      verification([])
+    )
+
+    expect(result.secure_state_mismatch).toBe(false)
+    expect(result.state.verified_transcript_hash).toBe(ZERO_TRANSCRIPT_HASH)
+    expect(result.state.last_verified_message_id).toBeNull()
+    await expect(getAstrConversationState(conversation, user)).resolves.toMatchObject({
+      verified_transcript_hash: ZERO_TRANSCRIPT_HASH,
+      last_verified_message_id: null,
+    })
+  })
+})
+
+describe('ASTR locally cleared transcript verification', () => {
+  it('can verify new visible messages from the persisted cleared baseline', async () => {
+    const nextHash = await transcriptHash('hash-before-clear', 'one_to_two', 2, 'state', 'cipher', 'a'.repeat(64))
+    const visibleMessage = {
+      id: 12,
+      body: '',
+      astr: {
+        version: 'astr-v4-client-state-aead',
+        direction: 'one_to_two',
+        counter: 2,
+        prev_transcript_hash: 'hash-before-clear',
+        transcript_hash: nextHash,
+        ratchet_public_key: 'state',
+        ciphertext: 'cipher',
+        auth_tag: 'a'.repeat(64),
+      },
+    }
+
+    const result = await verifyAstrTranscript({
+      id: 99,
+      initial_transcript_state: {
+        verified_transcript_hash: 'hash-before-clear',
+        structural_transcript_hash: 'hash-before-clear',
+        verified_counters: { one_to_two: 2, two_to_one: 0 },
+        structural_counters: { one_to_two: 2, two_to_one: 0 },
+      },
+      messages: [visibleMessage],
+    }, user, async () => ({ ...visibleMessage, body: 'new after clear' }))
+
+    expect(result.transcript_verified).toBe(true)
+    expect(result.verified_transcript_hash).toBe(nextHash)
+    expect(result.verified_counters.one_to_two).toBe(3)
+    expect(result.messages[0].body).toBe('new after clear')
   })
 })

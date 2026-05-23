@@ -248,6 +248,11 @@ export async function saveAstrConversationState(conversation, user, state) {
 
 export async function reconcileAstrConversationState(conversation, user, verification) {
   const existing = await getAstrConversationState(conversation, user)
+  if (conversation?.messages_purged_at) {
+    const next = stateFromVerification(conversation, user, verification, null)
+    await saveAstrConversationState(conversation, user, next)
+    return { state: next, secure_state_mismatch: false }
+  }
   if (existing && !persistedPrefixMatches(existing, verification)) {
     return {
       state: existing,

@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from flask import Flask
 
-from backend.models import Conversation, Message, User, db
+from backend.models import Conversation, Message, MessageRequest, User, db
 from backend.routes.auth import auth_bp
 from backend.routes.messages import messages_bp
 from backend.services.astr import ASTR_CLIENT_STATE_VERSION, ZERO_TRANSCRIPT_HASH, create_channel_state, dump_channel_state, transcript_hash
@@ -71,6 +71,13 @@ class PrivateMessageAstrRouteTest(unittest.TestCase):
                 channel_state=dump_channel_state(create_channel_state()),
             )
             db.session.add_all([conversation, other_conversation])
+            db.session.flush()
+            db.session.add(MessageRequest(
+                sender_id=alice.id,
+                receiver_id=bob.id,
+                status='active',
+                conversation_id=conversation.id,
+            ))
             db.session.commit()
             self.alice_id = alice.id
             self.bob_id = bob.id
@@ -199,8 +206,6 @@ class PrivateMessageAstrRouteTest(unittest.TestCase):
     def test_unrelated_user_cannot_delete_message_request(self):
         csrf = self.login('charlie')
         with self.app.app_context():
-            from backend.models import MessageRequest
-
             message_request = MessageRequest(sender_id=self.alice_id, receiver_id=self.bob_id, status='pending')
             db.session.add(message_request)
             db.session.commit()
@@ -209,6 +214,127 @@ class PrivateMessageAstrRouteTest(unittest.TestCase):
         response = self.client.delete(f'/messages/requests/{request_id}', json={}, headers=self.auth_headers(csrf))
 
         self.assertEqual(response.status_code, 404)
+
+    def test_delete_chat_clears_only_current_users_visible_history(self):
+        csrf = self.login('alice')
+        with self.app.app_context():
+            db.session.add_all([
+                Message(conversation_id=self.conversation_id, sender_id=self.alice_id, body='old from alice'),
+                Message(conversation_id=self.conversation_id, sender_id=self.bob_id, body='old from bob'),
+            ])
+            db.session.commit()
+
+        with patch('backend.routes.messages.emit_to_user'):
+            response = self.client.delete(
+                f'/messages/threads/{self.conversation_id}',
+                json={},
+                headers=self.auth_headers(csrf),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['cleared'])
+        self.assertEqual(payload['thread']['id'], self.conversation_id)
+        self.assertIsNone(payload['thread']['last_message'])
+
+        alice_thread = self.client.get(f'/messages/threads/{self.conversation_id}')
+        self.assertEqual(alice_thread.status_code, 200)
+        self.assertEqual(alice_thread.get_json()['conversation']['messages'], [])
+
+        bob_csrf = self.login('bob')
+        bob_thread = self.client.get(
+            f'/messages/threads/{self.conversation_id}',
+            headers=self.auth_headers(bob_csrf),
+        )
+        self.assertEqual(bob_thread.status_code, 200)
+        self.assertEqual(len(bob_thread.get_json()['conversation']['messages']), 2)
+
+        with self.app.app_context():
+            conversation = db.session.get(Conversation, self.conversation_id)
+            request = MessageRequest.query.filter_by(conversation_id=self.conversation_id).one()
+            self.assertIsNotNone(conversation)
+            self.assertEqual(request.status, 'active')
+            self.assertEqual(Message.query.filter_by(conversation_id=self.conversation_id).count(), 2)
+
+    def test_thread_list_keeps_connected_friend_after_delete_chat(self):
+        csrf = self.login('alice')
+        with self.app.app_context():
+            db.session.add(Message(conversation_id=self.conversation_id, sender_id=self.bob_id, body='old from bob'))
+            db.session.commit()
+
+        with patch('backend.routes.messages.emit_to_user'):
+            response = self.client.delete(
+                f'/messages/threads/{self.conversation_id}',
+                json={},
+                headers=self.auth_headers(csrf),
+            )
+        self.assertEqual(response.status_code, 200)
+
+        home = self.client.get('/messages')
+        self.assertEqual(home.status_code, 200)
+        threads = home.get_json()['threads']
+        self.assertEqual([thread['id'] for thread in threads], [self.conversation_id])
+        self.assertIsNone(threads[0]['last_message'])
+        self.assertEqual(threads[0]['other_user']['username'], 'bob')
+
+    def test_both_users_delete_chat_purges_server_messages_but_keeps_connection(self):
+        alice_csrf = self.login('alice')
+        with self.app.app_context():
+            db.session.add_all([
+                Message(conversation_id=self.conversation_id, sender_id=self.alice_id, body='old from alice'),
+                Message(conversation_id=self.conversation_id, sender_id=self.bob_id, body='old from bob'),
+            ])
+            db.session.commit()
+
+        with patch('backend.routes.messages.emit_to_user'):
+            first = self.client.delete(
+                f'/messages/threads/{self.conversation_id}',
+                json={},
+                headers=self.auth_headers(alice_csrf),
+            )
+        self.assertFalse(first.get_json()['server_messages_purged'])
+
+        bob_csrf = self.login('bob')
+        with patch('backend.routes.messages.emit_to_user'):
+            second = self.client.delete(
+                f'/messages/threads/{self.conversation_id}',
+                json={},
+                headers=self.auth_headers(bob_csrf),
+            )
+
+        self.assertEqual(second.status_code, 200)
+        self.assertTrue(second.get_json()['server_messages_purged'])
+        with self.app.app_context():
+            conversation = db.session.get(Conversation, self.conversation_id)
+            self.assertIsNotNone(conversation)
+            self.assertIsNotNone(conversation.messages_purged_at)
+            self.assertEqual(Message.query.filter_by(conversation_id=self.conversation_id).count(), 0)
+            request = MessageRequest.query.filter_by(conversation_id=self.conversation_id).one()
+            self.assertEqual(request.status, 'active')
+
+    def test_message_home_restores_connections_expired_by_legacy_delete_chat(self):
+        csrf = self.login('alice')
+        with self.app.app_context():
+            legacy = MessageRequest.query.filter_by(
+                sender_id=self.alice_id,
+                receiver_id=self.bob_id,
+                status='active',
+            ).one()
+            legacy.status = 'expired'
+            legacy.conversation_id = None
+            db.session.delete(db.session.get(Conversation, self.conversation_id))
+            db.session.commit()
+
+        response = self.client.get('/messages', headers=self.auth_headers(csrf))
+
+        self.assertEqual(response.status_code, 200)
+        threads = response.get_json()['threads']
+        self.assertEqual(len(threads), 1)
+        self.assertEqual(threads[0]['other_user']['username'], 'bob')
+        with self.app.app_context():
+            request = MessageRequest.query.filter_by(sender_id=self.alice_id, receiver_id=self.bob_id).one()
+            self.assertEqual(request.status, 'active')
+            self.assertIsNotNone(request.conversation_id)
 
     def test_send_reconciles_stale_channel_state_from_empty_message_log(self):
         csrf = self.login('alice')
