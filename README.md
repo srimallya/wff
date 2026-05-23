@@ -89,20 +89,19 @@ The browser derives message keys from ECDH material and conversation context. Cu
 
 The local client code keeps compatibility decrypt paths for older ASTR v2 and v3 messages.
 
-Current limitation: server conversation state is still used as ordering metadata. Client-owned transcript verification is partially implemented on conversation load, but durable local ASTR state remains part of the v1.3 protocol work.
+Current limitation: server conversation state is still used as ordering metadata. Client-owned transcript verification and durable local v4 transcript state are implemented on conversation load, including local detection of omitted or rewritten server history.
+
+The v4 client also stores local trust-on-first-use identity pins and shows a safety-number foundation in Conversation security settings. If the remote identity changes after first observation, normal sending is blocked until the user reviews and explicitly accepts the changed identity.
 
 ### ASTR Roadmap
 
 Important remaining protocol work includes:
 
-- complete durable local client transcript state from message history;
-- local IndexedDB ASTR channel state per conversation/device;
 - externally reviewed X3DH-style initial key agreement;
 - real signed-prekey verification;
 - one-time prekeys;
 - true rotating DH ratchet key pairs per ratchet step;
 - bounded skipped-message-key storage for out-of-order messages;
-- explicit identity-change warnings and safety-number UX;
 - robust multi-device session synchronization;
 - session reset and recovery flows;
 - packet-level replay/reorder tests;

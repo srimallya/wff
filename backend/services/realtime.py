@@ -1,6 +1,8 @@
 from flask_socketio import SocketIO, join_room
 
-from backend.models import User
+from backend.models import Conversation
+from backend.routes.auth import current_session_user
+from backend.services.account_cleanup import can_use_private_features
 
 
 socketio = SocketIO(cors_allowed_origins='*', async_mode='threading')
@@ -21,8 +23,7 @@ def chatroom_room():
 
 @socketio.on('wff_join')
 def handle_join(data):
-    username = (data or {}).get('username')
-    user = User.query.filter_by(username=username).first() if username else None
+    user = current_session_user()
     if not user:
         return {'ok': False}
     join_room(user_room(user.id))
@@ -31,8 +32,14 @@ def handle_join(data):
 
 @socketio.on('wff_join_conversation')
 def handle_join_conversation(data):
+    user = current_session_user()
+    if not user:
+        return {'ok': False}
     conversation_id = (data or {}).get('conversation_id')
     if not conversation_id:
+        return {'ok': False}
+    conversation = Conversation.query.get(conversation_id)
+    if not conversation or user.id not in [conversation.user_one_id, conversation.user_two_id]:
         return {'ok': False}
     join_room(conversation_room(conversation_id))
     return {'ok': True}
@@ -40,9 +47,8 @@ def handle_join_conversation(data):
 
 @socketio.on('wff_join_chatroom')
 def handle_join_chatroom(data):
-    username = (data or {}).get('username')
-    user = User.query.filter_by(username=username).first() if username else None
-    if not user or user.is_guest or not user.is_bengali or not user.birthdate or not user.password_hash:
+    user = current_session_user()
+    if not user or not can_use_private_features(user):
         return {'ok': False}
     join_room(chatroom_room())
     return {'ok': True}

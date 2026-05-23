@@ -1,4 +1,19 @@
-import { API_BASE } from '../api'
+import { API_BASE, apiFetch } from '../api'
+import {
+  astrStoreGet,
+  astrStoreSet,
+  currentAstrDeviceId,
+  computeSafetyNumber,
+  detectIdentityChange,
+  formatFingerprint,
+  getAstrConversationState,
+  getIdentityPin,
+  markIdentityChangeAccepted,
+  markIdentityVerified,
+  publicKeyFingerprint,
+  reconcileAstrConversationState,
+  safetyNumberDisplay,
+} from './astrStateStore'
 import {
   ASTR_MESSAGE_VERSIONS,
   ASTR_V2,
@@ -12,9 +27,6 @@ import {
   verifyAstrTranscript,
 } from './astrTranscript'
 
-const DB_NAME = 'wff-astr-v3'
-const KEY_STORE = 'identityKeys'
-const DEVICE_ID_KEY = 'wff_astr_device_id'
 const ENVELOPE_CIPHERTEXT_TYPE = 'astr-v3-device-envelopes'
 const ENVELOPE_CIPHERTEXT_TYPE_V4 = 'astr-v4-device-envelopes'
 
@@ -61,33 +73,12 @@ function concatBytes(...items) {
   return out
 }
 
-async function openDb() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1)
-    request.onupgradeneeded = () => {
-      request.result.createObjectStore(KEY_STORE)
-    }
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
-  })
-}
-
 async function idbGet(key) {
-  const db = await openDb()
-  return new Promise((resolve, reject) => {
-    const request = db.transaction(KEY_STORE, 'readonly').objectStore(KEY_STORE).get(key)
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
-  })
+  return astrStoreGet('identityKeys', key)
 }
 
 async function idbSet(key, value) {
-  const db = await openDb()
-  return new Promise((resolve, reject) => {
-    const request = db.transaction(KEY_STORE, 'readwrite').objectStore(KEY_STORE).put(value, key)
-    request.onsuccess = () => resolve()
-    request.onerror = () => reject(request.error)
-  })
+  return astrStoreSet('identityKeys', key, value)
 }
 
 async function generateIdentity() {
@@ -99,13 +90,7 @@ async function generateIdentity() {
 }
 
 function currentDeviceId() {
-  let value = localStorage.getItem(DEVICE_ID_KEY)
-  if (!value) {
-    const random = crypto.getRandomValues(new Uint8Array(16))
-    value = `dev_${[...random].map((byte) => byte.toString(16).padStart(2, '0')).join('')}`
-    localStorage.setItem(DEVICE_ID_KEY, value)
-  }
-  return value
+  return currentAstrDeviceId()
 }
 
 async function identityFor(user) {
@@ -122,11 +107,10 @@ async function identityFor(user) {
 export async function ensureKeyBundleRegistered(user) {
   if (!crypto?.subtle || !indexedDB || !user?.username) return null
   const { publicJwk } = await identityFor(user)
-  const res = await fetch(`${API_BASE}/messages/key-bundle`, {
+  const res = await apiFetch(`${API_BASE}/messages/key-bundle`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      username: user.username,
       device_id: currentDeviceId(),
       identity_public_key: publicJwk,
       signed_prekey_public_key: publicJwk,
@@ -145,6 +129,20 @@ function remoteUserId(conversation, userId) {
   return Number(userId) === Number(conversation.participants?.one?.id)
     ? conversation.participants?.two?.id
     : conversation.participants?.one?.id
+}
+
+function remoteBundleFor(conversation, user) {
+  return conversation.key_bundles?.[String(remoteUserId(conversation, user.id))]
+}
+
+function remoteIdentityPublicKey(conversation, user) {
+  const bundle = remoteBundleFor(conversation, user)
+  return bundle?.identity_public_key || bundle?.devices?.find((device) => validDevicePublicKey(device.identity_public_key))?.identity_public_key || null
+}
+
+function remoteSignedPrekeyPublicKey(conversation, user) {
+  const bundle = remoteBundleFor(conversation, user)
+  return bundle?.signed_prekey_public_key || bundle?.devices?.find((device) => validDevicePublicKey(device.signed_prekey_public_key))?.signed_prekey_public_key || remoteIdentityPublicKey(conversation, user)
 }
 
 function lastTranscriptHash(messages) {
@@ -177,6 +175,11 @@ function packetRatchetPayload(value) {
     // Older packets stored the ratchet key as a plain string.
   }
   return { ratchet_public_key: value }
+}
+
+function senderIdentityPublicKeyForMessage(message) {
+  const statePayload = packetRatchetPayload(packetStateCommitment(message))
+  return statePayload.sender_identity_public_key || null
 }
 
 function publicKeyMatches(left, right) {
@@ -340,6 +343,9 @@ async function v2HmacHex(conversation, packet) {
 
 export async function createAstrPacket(conversation, user, plaintext) {
   if (!crypto?.subtle || !conversation?.participants?.one || !conversation?.participants?.two) return null
+  if (conversation.identity_changed || conversation.transcript_error === ASTR_VERIFY_CODES.IDENTITY_KEY_CHANGED) {
+    throw new AstrClientError('IDENTITY_KEY_CHANGED', 'Secure identity changed. Review security details before sending.')
+  }
   await ensureKeyBundleRegistered(user)
   const { publicJwk } = await identityFor(user)
   const userId = String(user.id)
@@ -364,8 +370,10 @@ export async function createAstrPacket(conversation, user, plaintext) {
   if (conversation.transcript_verified === false && !canUseStructuralState) {
     throw new AstrClientError('SECURE_STATE_MISMATCH', 'Local ASTR transcript is not verified')
   }
-  const sendCounters = canUseStructuralState ? conversation.structural_counters : conversation.verified_counters
-  const sendTranscriptHash = canUseStructuralState ? conversation.structural_transcript_hash : conversation.verified_transcript_hash
+  const persistedState = await getAstrConversationState(conversation, user)
+  const stateSource = persistedState && !canUseStructuralState ? persistedState : conversation
+  const sendCounters = canUseStructuralState ? conversation.structural_counters : stateSource.verified_counters
+  const sendTranscriptHash = canUseStructuralState ? conversation.structural_transcript_hash : stateSource.verified_transcript_hash
   const counter = Number.isInteger(sendCounters?.[direction])
     ? sendCounters[direction]
     : Number.isInteger(conversation.verified_counters?.[direction])
@@ -504,7 +512,12 @@ async function decryptV4(conversation, user, message) {
     await aesKeyFromBytes(messageKey),
     ciphertext
   )
-  return { ...message, body: decoder.decode(plaintext), encrypted: true }
+  return {
+    ...message,
+    body: decoder.decode(plaintext),
+    encrypted: true,
+    astr_sender_identity_public_key: senderPublicKey,
+  }
 }
 
 async function decryptV2(conversation, message) {
@@ -552,7 +565,114 @@ export async function decryptConversation(conversation, user) {
   if (!conversation?.messages) return conversation
   await ensureKeyBundleRegistered(user)
   const verification = await verifyAstrTranscript(conversation, user, decryptAstrMessage)
-  return { ...conversation, ...verification }
+  const identityState = await reconcileConversationIdentity(conversation, user, verification)
+  const localState = await reconcileAstrConversationState(conversation, user, verification)
+  if (localState.secure_state_mismatch) {
+    return {
+      ...conversation,
+      ...verification,
+      messages: verification.messages.map((message) => message.astr ? {
+        ...message,
+        body: 'Message could not be verified',
+        encrypted: true,
+        verify_failed: true,
+        verify_error: ASTR_VERIFY_CODES.SECURE_STATE_MISMATCH,
+      } : message),
+      local_astr_state: localState.state,
+      secure_state_mismatch: true,
+      transcript_verified: false,
+      transcript_error: ASTR_VERIFY_CODES.SECURE_STATE_MISMATCH,
+    }
+  }
+  if (identityState.identity_changed) {
+    return {
+      ...conversation,
+      ...verification,
+      messages: verification.messages.map((message) => message.astr ? {
+        ...message,
+        body: 'Message could not be verified',
+        encrypted: true,
+        verify_failed: true,
+        verify_error: ASTR_VERIFY_CODES.IDENTITY_KEY_CHANGED,
+      } : message),
+      local_astr_state: localState.state,
+      security: identityState.security,
+      identity_changed: true,
+      transcript_verified: false,
+      transcript_error: ASTR_VERIFY_CODES.IDENTITY_KEY_CHANGED,
+    }
+  }
+  return { ...conversation, ...verification, local_astr_state: localState.state, security: identityState.security }
+}
+
+async function reconcileConversationIdentity(conversation, user, verification) {
+  const remoteId = remoteUserId(conversation, user.id)
+  const localUserId = user.id || user.username
+  let changed = false
+
+  const bundleIdentity = remoteIdentityPublicKey(conversation, user)
+  if (bundleIdentity) {
+    const result = await detectIdentityChange({
+      localUserId,
+      remoteUserId: remoteId,
+      remoteDeviceIdOrUser: 'user',
+      identityPublicKey: bundleIdentity,
+      signedPrekeyPublicKey: remoteSignedPrekeyPublicKey(conversation, user),
+    })
+    changed = changed || result.changed
+  }
+
+  for (const message of verification.messages || []) {
+    if (message.verify_failed || message.decrypt_failed || message.is_mine || message.astr?.version !== ASTR_V4) continue
+    const senderIdentity = message.astr_sender_identity_public_key || senderIdentityPublicKeyForMessage(message)
+    if (!senderIdentity) continue
+    const existingPin = await getIdentityPin(localUserId, remoteId, 'user')
+    const senderFingerprint = await publicKeyFingerprint(senderIdentity)
+    if (existingPin && !existingPin.changed && senderFingerprint === existingPin.previous_fingerprint) continue
+    const result = await detectIdentityChange({
+      localUserId,
+      remoteUserId: remoteId,
+      remoteDeviceIdOrUser: 'user',
+      identityPublicKey: senderIdentity,
+      signedPrekeyPublicKey: remoteSignedPrekeyPublicKey(conversation, user),
+    })
+    changed = changed || result.changed
+  }
+
+  const security = await conversationSecurityDetails(conversation, user)
+  return { identity_changed: changed || Boolean(security.pin?.changed), security }
+}
+
+export async function conversationSecurityDetails(conversation, user) {
+  const remoteId = remoteUserId(conversation, user.id)
+  const localUserId = user.id || user.username
+  const pin = await getIdentityPin(localUserId, remoteId, 'user')
+  const { publicJwk } = await identityFor(user)
+  const remoteIdentity = remoteIdentityPublicKey(conversation, user)
+  const localFingerprint = await publicKeyFingerprint(publicJwk)
+  const remoteFingerprint = await publicKeyFingerprint(remoteIdentity)
+  const safetyNumber = remoteIdentity ? await computeSafetyNumber(publicJwk, remoteIdentity) : null
+  return {
+    pin,
+    local_identity_fingerprint: localFingerprint,
+    remote_identity_fingerprint: remoteFingerprint,
+    remote_identity_fingerprint_display: formatFingerprint(remoteFingerprint),
+    safety_number: safetyNumber,
+    safety_number_display: safetyNumberDisplay(safetyNumber),
+    status: pin?.changed ? 'changed' : pin?.verified ? 'verified' : pin ? 'unverified' : 'unknown',
+  }
+}
+
+export async function markConversationIdentityVerified(conversation, user) {
+  const remoteId = remoteUserId(conversation, user.id)
+  await markIdentityVerified(user.id || user.username, remoteId, 'user')
+  return conversationSecurityDetails(conversation, user)
+}
+
+export async function acceptConversationIdentityChange(conversation, user) {
+  const remoteId = remoteUserId(conversation, user.id)
+  await markIdentityChangeAccepted(user.id || user.username, remoteId, 'user')
+  return conversationSecurityDetails(conversation, user)
 }
 
 export const __test__ = {
@@ -561,6 +681,10 @@ export const __test__ = {
   ASTR_V4,
   ZERO_TRANSCRIPT_HASH,
   canUseStructuralSendState,
+  conversationSecurityDetails,
+  detectIdentityChange,
+  markConversationIdentityVerified,
+  acceptConversationIdentityChange,
   senderIdentityMatchesBundle,
   transcriptHash,
   verifyAstrTranscript,
