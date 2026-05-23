@@ -44,7 +44,7 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
     app.config['SQLALCHEMY_BINDS'] = {'wff': f'sqlite:///{db_path}'}
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SECRET_KEY'] = os.environ.get('WFF_SECRET_KEY', 'wff-dev-session-secret-change-me')
+    app.config['SECRET_KEY'] = os.environ.get('WFF_SECRET_KEY') or 'wff-dev-session-secret-change-me'
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['SESSION_COOKIE_SECURE'] = os.environ.get('WFF_SESSION_COOKIE_SECURE', 'false').lower() == 'true'
