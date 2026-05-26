@@ -22,9 +22,10 @@ function mockSearchResponse(essays = [], years = []) {
   }
 }
 
-async function loadStore() {
+async function loadStore(seedLocalStorage = {}) {
   vi.resetModules()
   globalThis.localStorage = localStorageMock()
+  Object.entries(seedLocalStorage).forEach(([key, value]) => globalThis.localStorage.setItem(key, value))
   globalThis.window = { location: { origin: 'http://localhost' } }
   globalThis.fetch = vi.fn()
   const module = await import('./zustandStore')
@@ -55,6 +56,48 @@ describe('WFF feed search store', () => {
     expect(state.searchResults).toHaveLength(1)
     expect(state.searchYearCounts).toEqual([{ year: 2030, count: 1 }])
     expect(lastFetchBody()).toMatchObject({ query: 'climate' })
+  })
+
+  it('uses ranked recommendations as the default forum feed', async () => {
+    const useStore = await loadStore()
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ essays: [{ id: 1 }], total: 1 }),
+    })
+
+    await useStore.getState().fetchEssays()
+
+    expect(useStore.getState().feedRankingMode).toBe('ranked')
+    expect(globalThis.fetch.mock.calls.at(-1)[0]).toContain('/recommendations/feed?')
+    expect(globalThis.fetch.mock.calls.at(-1)[0]).toContain('limit=20')
+  })
+
+  it('remembers chronological preference and uses the existing feed endpoint', async () => {
+    const useStore = await loadStore({ wff_feedRankingMode: 'chronological' })
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ essays: [{ id: 2 }], total: 1 }),
+    })
+
+    await useStore.getState().fetchEssays()
+
+    expect(useStore.getState().feedRankingMode).toBe('chronological')
+    expect(globalThis.fetch.mock.calls.at(-1)[0]).toContain('/essays?')
+    expect(globalThis.fetch.mock.calls.at(-1)[0]).not.toContain('/recommendations/feed')
+  })
+
+  it('stores feed ranking preference when toggled', async () => {
+    const useStore = await loadStore()
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ essays: [], total: 0 }),
+    })
+
+    useStore.getState().setFeedRankingMode('chronological')
+
+    expect(useStore.getState().feedRankingMode).toBe('chronological')
+    expect(globalThis.localStorage.getItem('wff_feedRankingMode')).toBe('chronological')
+    expect(globalThis.fetch.mock.calls.at(-1)[0]).toContain('/essays?')
   })
 
   it('reruns active search on country change and clears selected year', async () => {

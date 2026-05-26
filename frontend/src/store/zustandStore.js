@@ -58,6 +58,7 @@ export const useStore = create((set, get) => ({
   essays: [],
   feedTimelineEssays: [],
   essaysTotal: 0,
+  feedRankingMode: localStorage.getItem('wff_feedRankingMode') || 'ranked',
   feedYearCounts: [],
   feedYearCountsLoading: false,
   searchQuery: '',
@@ -292,6 +293,13 @@ export const useStore = create((set, get) => ({
     const { searchQuery, searchEssays } = get()
     if (searchQuery) searchEssays(searchQuery)
   },
+  setFeedRankingMode: (mode) => {
+    const normalizedMode = mode === 'chronological' ? 'chronological' : 'ranked'
+    localStorage.setItem('wff_feedRankingMode', normalizedMode)
+    set({ feedRankingMode: normalizedMode })
+    const { searchQuery, fetchEssays } = get()
+    if (!searchQuery) fetchEssays()
+  },
   resetFeedView: () => set({
     feedFilter: { year: null, active: false, countryCode: '' },
     searchQuery: '',
@@ -400,11 +408,14 @@ export const useStore = create((set, get) => ({
   },
 
   fetchEssays: async () => {
-    const { feedFilter, user } = get()
-    let url = `${API_BASE}/essays?`
-    if (feedFilter.active && feedFilter.year != null) url += `year=${feedFilter.year}&`
-    if (feedFilter.countryCode) url += `country_code=${encodeURIComponent(feedFilter.countryCode)}&`
-    if (user.id) url += `current_user_id=${user.id}`
+    const { feedFilter, feedRankingMode, user } = get()
+    const params = new URLSearchParams()
+    if (feedFilter.active && feedFilter.year != null) params.set('year', String(feedFilter.year))
+    if (feedFilter.countryCode) params.set('country_code', feedFilter.countryCode)
+    if (user.id) params.set('current_user_id', String(user.id))
+    if (feedRankingMode === 'ranked') params.set('limit', '20')
+    const endpoint = feedRankingMode === 'ranked' ? 'recommendations/feed' : 'essays'
+    const url = `${API_BASE}/${endpoint}?${params.toString()}`
     try {
       const res = await apiFetch(url)
       const d = await res.json()

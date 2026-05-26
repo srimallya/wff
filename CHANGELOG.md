@@ -17,6 +17,7 @@
 ### Future-Development Ranking
 
 - Added backend-only recommendation infrastructure behind `GET /api/recommendations/feed`.
+- Made ranked Forum ordering the default feed fetch path, with a remembered Profile toggle for switching back to chronological order.
 - Split ranking code into candidate generation, feature hydration, scoring, and serving modules.
 - Added candidate sources for recent posts, hierarchical search context, semantic neighbors, public vote affinity, comment development, policy posts, temporal gravity, and exploration.
 - Added transparent future-development features for semantic relevance, country/year context, temporal gravity, policy specificity, vote affinity, smoothed vote quality, discussion development, constructive disagreement, freshness, exploration, and penalties.

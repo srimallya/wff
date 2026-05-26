@@ -21,6 +21,8 @@ export default function Profile() {
     fetchNotificationKey,
     savePushSubscription,
     deletePushSubscription,
+    feedRankingMode,
+    setFeedRankingMode,
   } = useStore()
   const [showDelete, setShowDelete] = useState(false)
   const [deletePassword, setDeletePassword] = useState('')
@@ -255,6 +257,10 @@ export default function Profile() {
     setTheme((currentTheme) => currentTheme === 'dark' ? 'light' : 'dark')
   }
 
+  const toggleFeedRanking = () => {
+    setFeedRankingMode(feedRankingMode === 'ranked' ? 'chronological' : 'ranked')
+  }
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -330,8 +336,8 @@ export default function Profile() {
                   )}
                 </div>
 
-                {canUsePrivateFeatures && (
-                  <div className="swiss-panel space-y-5">
+                <div className="swiss-panel space-y-5">
+                  {canUsePrivateFeatures && (
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <p className="text-sm font-medium text-gray-200">PWA notifications</p>
@@ -352,6 +358,28 @@ export default function Profile() {
                         <span
                           className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${
                             notificationsOn ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  )}
+                    <div className={`flex items-center justify-between gap-4 ${canUsePrivateFeatures ? 'border-t border-dark-border pt-5' : ''}`}>
+                      <div>
+                        <p className="text-sm font-medium text-gray-200">Forum ranking</p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {feedRankingMode === 'ranked' ? 'Ranked' : 'Chronological'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={toggleFeedRanking}
+                        className={`relative h-7 w-12 rounded-full transition-colors ${feedRankingMode === 'ranked' ? 'bg-primary' : 'bg-dark-border'}`}
+                        aria-pressed={feedRankingMode === 'ranked'}
+                        aria-label="Forum ranking"
+                      >
+                        <span
+                          className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${
+                            feedRankingMode === 'ranked' ? 'translate-x-5' : 'translate-x-0'
                           }`}
                         />
                       </button>
@@ -378,7 +406,6 @@ export default function Profile() {
                       </button>
                     </div>
                   </div>
-                )}
 
                 <IconButton
                   onClick={handleLogout}
