@@ -1,4 +1,4 @@
-from backend.models import Comment, Conversation, Essay, MessageRequest, User
+from backend.models import Comment, CommentVote, Essay, User, Vote
 
 
 def build_recommendation_graph(post_limit=500, comment_limit=2000):
@@ -44,12 +44,17 @@ def build_recommendation_graph(post_limit=500, comment_limit=2000):
         country_label = essay.country or 'Global'
         country_node = f'country:{country_code}'
         year_node = f'year:{essay.target_calendar_year}'
+        policy_category = essay.policy_proposal.category if essay.policy_proposal else None
         add_node(essay_node, 'post', (essay.content or '')[:80], score=essay.score, created_at=essay.created_at.isoformat())
         add_node(country_node, 'country', country_label, code=country_code)
         add_node(year_node, 'year', str(essay.target_calendar_year))
         add_edge(f'user:{essay.user_id}', essay_node, 'wrote', weight=3.0)
         add_edge(essay_node, country_node, 'country', weight=1.0)
-        add_edge(essay_node, year_node, 'year', weight=1.0)
+        add_edge(essay_node, year_node, 'target_year', weight=1.0)
+        if policy_category:
+            policy_node = f'policy_category:{policy_category}'
+            add_node(policy_node, 'policy_category', policy_category)
+            add_edge(essay_node, policy_node, 'policy_category', weight=1.5)
 
     comments = []
     if essay_ids:
@@ -63,21 +68,24 @@ def build_recommendation_graph(post_limit=500, comment_limit=2000):
     for comment in comments:
         comment_node = f'comment:{comment.id}'
         add_node(comment_node, 'comment', (comment.content or '')[:70], score=comment.score, created_at=comment.created_at.isoformat())
-        add_edge(f'user:{comment.user_id}', comment_node, 'commented', weight=2.0)
+        add_edge(f'user:{comment.user_id}', comment_node, 'wrote', weight=2.0)
         if comment.parent_id:
-            add_edge(comment_node, f'comment:{comment.parent_id}', 'replied_to', weight=2.5)
+            add_edge(comment_node, f'comment:{comment.parent_id}', 'replies_to', weight=2.5)
         else:
-            add_edge(comment_node, f'post:{comment.essay_id}', 'on_post', weight=2.0)
+            add_edge(comment_node, f'post:{comment.essay_id}', 'develops', weight=2.0)
 
-    conversations = Conversation.query.order_by(Conversation.updated_at.desc()).limit(500).all()
-    for conversation in conversations:
-        add_edge(f'user:{conversation.user_one_id}', f'user:{conversation.user_two_id}', 'connected', weight=4.0, conversation_id=conversation.id)
-        add_edge(f'user:{conversation.user_two_id}', f'user:{conversation.user_one_id}', 'connected', weight=4.0, conversation_id=conversation.id)
+    votes = Vote.query.filter(Vote.essay_id.in_(essay_ids)).limit(5000).all() if essay_ids else []
+    for vote in votes:
+        relation = 'upvoted' if vote.value > 0 else 'downvoted'
+        weight = 1.5 if vote.value > 0 else -1.5
+        add_edge(f'user:{vote.user_id}', f'post:{vote.essay_id}', relation, weight=weight)
 
-    active_requests = MessageRequest.query.filter_by(status='active').limit(500).all()
-    for message_request in active_requests:
-        add_edge(f'user:{message_request.sender_id}', f'user:{message_request.receiver_id}', 'connected', weight=4.0, request_id=message_request.id)
-        add_edge(f'user:{message_request.receiver_id}', f'user:{message_request.sender_id}', 'connected', weight=4.0, request_id=message_request.id)
+    comment_ids = [comment.id for comment in comments]
+    comment_votes = CommentVote.query.filter(CommentVote.comment_id.in_(comment_ids)).limit(5000).all() if comment_ids else []
+    for vote in comment_votes:
+        relation = 'upvoted' if vote.value > 0 else 'downvoted'
+        weight = 1.0 if vote.value > 0 else -1.0
+        add_edge(f'user:{vote.user_id}', f'comment:{vote.comment_id}', relation, weight=weight)
 
     return {
         'nodes': list(nodes.values()),
@@ -88,6 +96,7 @@ def build_recommendation_graph(post_limit=500, comment_limit=2000):
             'comments': sum(1 for node in nodes.values() if node['type'] == 'comment'),
             'countries': sum(1 for node in nodes.values() if node['type'] == 'country'),
             'years': sum(1 for node in nodes.values() if node['type'] == 'year'),
+            'policy_categories': sum(1 for node in nodes.values() if node['type'] == 'policy_category'),
             'relations': len(edges),
         },
     }

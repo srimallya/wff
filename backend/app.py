@@ -14,6 +14,7 @@ from backend.routes.essays import essays_bp
 from backend.routes.messages import cleanup_expired_media, messages_bp
 from backend.routes.notifications import notifications_bp
 from backend.routes.proposals import proposals_bp
+from backend.routes.recommendations import recommendations_bp
 from backend.services.account_cleanup import cleanup_inactive_accounts
 from backend.services.realtime import socketio
 from backend.services.schema import ensure_schema
@@ -63,6 +64,7 @@ def create_app():
     app.register_blueprint(messages_bp, url_prefix='/api/messages')
     app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
     app.register_blueprint(proposals_bp, url_prefix='/api/proposals')
+    app.register_blueprint(recommendations_bp, url_prefix='/api/recommendations')
 
     with app.app_context():
         db.create_all()
@@ -98,6 +100,7 @@ def create_app():
             'POST /api/essays',
             'POST /api/essays/search',
             'GET /api/proposals',
+            'GET /api/recommendations/feed',
         ]})
 
     return app

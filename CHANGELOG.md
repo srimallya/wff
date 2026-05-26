@@ -14,6 +14,17 @@
 - Kept the Forum navigation reset path centralized through `resetFeedView`, clearing search state, filters, and contextual facets.
 - Added backend and Zustand store tests for hierarchical search, contextual histograms, semantic fallback, and reset behavior.
 
+### Future-Development Ranking
+
+- Added backend-only recommendation infrastructure behind `GET /api/recommendations/feed`.
+- Split ranking code into candidate generation, feature hydration, scoring, and serving modules.
+- Added candidate sources for recent posts, hierarchical search context, semantic neighbors, public vote affinity, comment development, policy posts, temporal gravity, and exploration.
+- Added transparent future-development features for semantic relevance, country/year context, temporal gravity, policy specificity, vote affinity, smoothed vote quality, discussion development, constructive disagreement, freshness, exploration, and penalties.
+- Added serving rules for author caps, country/year diversity, exploration reserve, downvote suppression, and debug-only reasons.
+- Updated the internal recommendation graph to use public content-development edges only.
+- Excluded private message contents, ASTR packet fields, `Message`, `MessageRequest`, and `Conversation` data from ranking.
+- Documented WFF ranking as future-development ranking, not social ranking or an engagement feed.
+
 ## v1.2.0
 
 World Foresight Forum is currently treated as v1.2. This release establishes the global English WFF product, hardens private messaging, moves the interface toward the Swiss design direction, fixes production posting, adds internal graph infrastructure for ranking, and improves PWA/social identity.

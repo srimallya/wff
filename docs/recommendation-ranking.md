@@ -1,138 +1,203 @@
-# WFF Recommendation And Ranking Plan
+# WFF Future-Development Ranking
 
-This plan adapts the useful parts of `twitter/the-algorithm` to WFF without copying its scale or social-media assumptions.
+WFF ranking is a backend system for surfacing imagined futures that are useful for policy development. It uses public actions such as votes, comments, search context, country/year filters, policy categories, semantic similarity, and discussion structure. It does not use private messaging data or author popularity as primary ranking signals.
 
-## What We Keep From Twitter's Architecture
+Search excavates a domain. Ranking orders the excavation. Recommendation suggests adjacent future-development nodes.
 
-Twitter's feed stack is organized as:
+## Architecture
 
-1. Candidate generation from multiple sources.
-2. Feature hydration from graph, user action, embedding, and safety systems.
-3. Light ranking to shrink the candidate set.
-4. Heavy ranking for final relevance.
-5. Filtering, deduplication, diversity, and serving.
+WFF borrows the useful service shape from X/Twitter without borrowing the engagement objective:
 
-For WFF, the same shape is correct, but the implementation should be smaller and transparent. We do not need a visible graph page. The graph is an internal feature source for ranking.
+1. Candidate generation.
+2. Feature hydration.
+3. Scoring and ranking.
+4. Filtering, deduplication, diversity, and exploration serving rules.
+5. Optional debug metadata for backend/API testing.
 
-## WFF Graph
+The public Forum feed remains chronological in v1.3. The recommendation engine is available through a backend endpoint for controlled testing.
 
-WFF should maintain a typed relationship graph:
+## Privacy Boundary
 
-- `user -> post`: wrote
-- `user -> comment`: commented
-- `comment -> post`: on_post
-- `comment -> comment`: replied_to
-- `post -> country`: country
-- `post -> year`: target_year
-- `user -> user`: connected by accepted message request or conversation
-- `user -> post`: upvoted or downvoted
-- `user -> comment`: upvoted or downvoted
+Ranking must not use:
 
-The first internal builder is `backend/services/recommendation_graph.py`. It returns nodes and weighted edges for ranking code, not for public UI.
+- private message plaintext;
+- private message ciphertext;
+- ASTR packet fields;
+- private conversation contents;
+- accepted private-message relationships;
+- `MessageRequest` rows;
+- `Conversation` rows;
+- `Message` rows.
+
+Only public posts, public comments, public post votes, public comment votes, policy proposal metadata, country/year context, and semantic embeddings are valid ranking inputs.
 
 ## Candidate Sources
 
-WFF should generate candidates from several sources and then merge them.
+The v1.3 backend candidate generators are:
 
-1. Fresh global posts:
-   Recent posts, lightly boosted if they have early comments or upvotes.
+- `recent_posts`: recent public essays for freshness and cold start.
+- `search_context_posts`: hierarchical search result sets when query/country/year context exists.
+- `semantic_neighbor_posts`: posts embedding-similar to public posts the reader wrote, upvoted, or commented on, plus recent query context.
+- `vote_affinity_posts`: bounded public-vote collaborative candidates.
+- `comment_development_posts`: posts with substantive public comments, replies, and positively received comments.
+- `policy_posts`: posts marked as policy proposals or linked to a `PolicyProposal` category.
+- `temporal_gravity_posts`: posts whose target year is approaching the current year.
+- `exploration_posts`: underrepresented countries, year buckets, and policy categories with enough substance.
 
-2. Country-aware posts:
-   Posts from countries the reader has written about, commented on, upvoted, or searched.
-
-3. Year-aware posts:
-   Posts near future years the reader tends to read or write about.
-
-4. Social-neighborhood posts:
-   Posts written or discussed by people connected to the reader through accepted message requests or conversations.
-
-5. Collaborative graph posts:
-   Posts engaged by users who behave similarly to the reader, using shared countries, years, authors, upvotes, and comments.
-
-6. Semantic posts:
-   Posts whose embeddings are close to posts the reader wrote, upvoted, commented on, or searched for.
+There are no follow candidates and no social-neighborhood candidates.
 
 ## Features
 
-Hydrate each candidate post with:
+Each candidate is hydrated into a `RecommendationFeatures` object:
 
-- Post quality: length, author account status, score, comment count, downvote ratio.
-- Recency: post age and activity recency.
-- Country match: reader-country affinity score.
-- Year match: distance between target year and reader's preferred future horizon.
-- Author affinity: reader-author interaction strength.
-- Social proof: connected users who wrote, upvoted, or commented.
-- Semantic similarity: embedding similarity between reader profile and post.
-- Diversity metadata: author, country, year bucket, and semantic cluster.
-- Safety/trust: hidden/deleted users, abusive content flags when available, self-spam signals.
+- `semantic_relevance`
+- `country_context_relevance`
+- `target_year_relevance`
+- `temporal_gravity`
+- `policy_specificity`
+- `user_upvote_affinity`
+- `user_downvote_penalty`
+- `aggregate_vote_quality`
+- `downvote_ratio_penalty`
+- `discussion_development_quality`
+- `constructive_disagreement`
+- `freshness`
+- `recent_activity`
+- `exploration_bonus`
+- `repetition_penalty`
+- `author_concentration_penalty`
+- `spam_or_badfaith_penalty`
+- `already_seen_penalty`
 
-## Ranking Formula For V1.3
+Author identity and generated public names are weak signals only. The ranker does not create author popularity ranking.
 
-Use a transparent weighted score before training any ML model:
+## Score
+
+Weights live in `backend/services/recommendation_ranker.py`:
 
 ```text
 score =
-  0.22 * semantic_similarity
-+ 0.18 * country_affinity
-+ 0.14 * year_affinity
-+ 0.14 * social_affinity
-+ 0.12 * post_quality
-+ 0.10 * freshness
-+ 0.06 * discussion_quality
-+ 0.04 * exploration
-- 0.20 * downvote_or_report_penalty
-- 0.15 * repetition_penalty
+  0.18 * semantic_relevance
++ 0.13 * user_upvote_affinity
++ 0.11 * country_context_relevance
++ 0.10 * target_year_relevance
++ 0.10 * discussion_development_quality
++ 0.10 * policy_specificity
++ 0.08 * aggregate_vote_quality
++ 0.07 * constructive_disagreement
++ 0.07 * freshness
++ 0.06 * temporal_gravity
++ 0.05 * exploration_bonus
+- 0.14 * user_downvote_penalty
+- 0.12 * downvote_ratio_penalty
+- 0.10 * repetition_penalty
+- 0.10 * author_concentration_penalty
+- 0.20 * spam_or_badfaith_penalty
+- 0.08 * already_seen_penalty
 ```
 
-Then apply serving rules:
+Search mode uses a search-weighted variant that gives `semantic_relevance`, country context, and target-year context more control. Search filters remain hard constraints.
 
-- No more than two consecutive posts from the same author.
-- No more than three consecutive posts from the same country.
-- Keep at least 20 percent exploration when enough candidates exist.
-- Remove posts the reader already opened, commented on, or downvoted unless explicitly searching.
-- Prefer public-policy relevance over generic social chatter.
+## Vote Quality
 
-## Learned Ranking After V1.3
-
-After enough events exist, train a small model to predict:
-
-- comment probability
-- upvote probability
-- long-read probability
-- constructive-reply probability
-- downvote/report probability
-
-The final score should be multi-objective:
+Aggregate votes are smoothed so a single early vote does not dominate:
 
 ```text
-final_score =
-  p_constructive_comment * 2.0
-+ p_upvote * 1.0
-+ p_long_read * 0.8
-- p_downvote * 1.5
-- p_report * 3.0
-+ diversity_bonus
+smoothed_vote_quality =
+  (upvotes + 2) / (upvotes + downvotes + 5)
 ```
 
-## Event Logging Needed
+Downvote ratio remains a separate penalty.
 
-WFF currently has posts, comments, votes, message relationships, countries, and years. Ranking will improve once we add explicit read events:
+## Discussion Development
 
-- post impression
-- post open
-- dwell time bucket
-- search query
-- country filter use
-- year slider use
-- hide/downvote/report
+Discussion quality is separate from raw engagement. It uses:
 
-These events should feed a `wff_user_action` table and daily aggregates.
+- comment count;
+- reply count;
+- average comment length;
+- public comment score sum;
+- distinct public commenters;
+- public comment downvote ratio.
 
-## Implementation Steps
+The feature is capped so a large argument cannot dominate ranking.
 
-1. Keep the graph internal.
-2. Add `wff_user_action` for impressions, opens, searches, and filter use.
-3. Add a `/api/recommendations/feed` endpoint that returns ranked posts.
-4. Replace the default feed query with ranked recommendations when a registered user is logged in.
-5. Keep the search endpoint separate and deterministic.
-6. Add debug-only ranking explanations for development, not visible in normal UI.
+## Constructive Disagreement
+
+Constructive disagreement receives a small boost only when mixed public votes are paired with substantive discussion:
+
+- at least one upvote and one downvote;
+- downvote ratio between `0.15` and `0.55`;
+- at least two comments;
+- average comment length at least `80`;
+- comment scores are not heavily negative.
+
+Extreme downvote ratios and negative comment paths are penalties, not rewards.
+
+## Temporal Gravity
+
+A WFF post is a public future commitment. Posts regain relevance as their target year approaches:
+
+```text
+temporal_gravity = min(0.12, 1 / (1 + abs(target_year - current_year)))
+```
+
+The implementation also adds small capped boosts for near-horizon target years. Far-future posts remain eligible.
+
+## Serving Rules
+
+Serving applies after scoring:
+
+- no more than two posts from the same author in the top 20;
+- avoid repeated same-country runs;
+- avoid repeated target-year bucket runs;
+- reserve exploration slots when enough candidates exist;
+- strongly suppress user-downvoted posts outside explicit search;
+- hide debug reasons unless `debug=true`.
+
+Year buckets:
+
+- `current-3`
+- `4-10`
+- `11-25`
+- `26-50`
+- `51-100`
+
+## API
+
+Backend-only test endpoint:
+
+```text
+GET /api/recommendations/feed
+```
+
+Params:
+
+- `current_user_id`
+- `query`
+- `country_code`
+- `year`
+- `limit`
+- `offset`
+- `debug`
+
+Response:
+
+```json
+{
+  "essays": [],
+  "total": 0,
+  "debug": {
+    "candidate_counts": {},
+    "reasons": {
+      "42": [
+        "semantic_relevance=0.81",
+        "policy_specificity=0.70",
+        "score=0.423"
+      ]
+    }
+  }
+}
+```
+
+The `debug` object is omitted unless `debug=true`.
