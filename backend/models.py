@@ -130,6 +130,8 @@ class Essay(db.Model):
     author_age_at_writing = db.Column(db.Integer, nullable=True)
     target_age = db.Column(db.Integer, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    edited_at = db.Column(db.DateTime, nullable=True)
+    edit_count = db.Column(db.Integer, nullable=False, default=0)
     is_policy_proposal = db.Column(db.Boolean, default=False)
 
     policy_proposal = db.relationship('backend.models.PolicyProposal', backref='essay', uselist=False, cascade='all, delete-orphan')

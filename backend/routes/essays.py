@@ -1,11 +1,13 @@
 from flask import Blueprint, request, jsonify
 from backend.models import db, Essay, User, Vote, Comment, CommentVote
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 from sqlalchemy import func
+from backend.routes.auth import require_current_user
 from backend.services.realtime import emit_global
 
 essays_bp = Blueprint('wff_essays', __name__)
+POST_MANAGEMENT_WINDOW = timedelta(days=30)
 
 QUERY_EXPANSIONS = {
     'green': ['climate', 'environment', 'sustainability'],
@@ -21,6 +23,18 @@ def calculate_age_from_birthdate(birthdate_str):
         return age
     except:
         return None
+
+def essay_management_status(e, current_user_id=None):
+    is_owner = bool(current_user_id and e.user_id == current_user_id)
+    within_window = bool(e.created_at and datetime.utcnow() - e.created_at <= POST_MANAGEMENT_WINDOW)
+    edit_count = e.edit_count or 0
+    return {
+        'is_owner': is_owner,
+        'can_edit': is_owner and within_window and edit_count < 1,
+        'can_delete': is_owner and within_window,
+        'edit_count': edit_count,
+        'edited_at': e.edited_at.isoformat() if e.edited_at else None,
+    }
 
 def essay_to_dict(e, current_user_id=None):
     user = User.query.get(e.user_id)
@@ -43,6 +57,7 @@ def essay_to_dict(e, current_user_id=None):
         'author_current_age': current_age,
         'target_age': e.target_age,
         'created_at': e.created_at.isoformat(),
+        **essay_management_status(e, current_user_id),
         'is_policy_proposal': e.is_policy_proposal,
         'upvotes': e.upvotes,
         'downvotes': e.downvotes,
@@ -222,6 +237,58 @@ def create_essay():
     payload = essay_to_dict(essay, user.id)
     emit_global('essay_created', {'essay': payload})
     return jsonify(payload), 201
+
+@essays_bp.route('/<int:essay_id>', methods=['PATCH'])
+def update_essay(essay_id):
+    user = require_current_user()
+    essay = Essay.query.get_or_404(essay_id)
+
+    if essay.user_id != user.id:
+        return jsonify({'error': 'You can only edit your own post.'}), 403
+    if datetime.utcnow() - essay.created_at > POST_MANAGEMENT_WINDOW:
+        return jsonify({'error': 'Posts can only be edited within 30 days of posting.'}), 403
+    if (essay.edit_count or 0) >= 1:
+        return jsonify({'error': 'This post has already been edited once.'}), 403
+
+    data = request.get_json() or {}
+    content = str(data.get('content') or '').strip()
+    if not content or len(content) < 50:
+        return jsonify({'error': 'Content must be at least 50 characters'}), 400
+    if len(content) > 2000:
+        return jsonify({'error': 'Content must be at most 2000 characters'}), 400
+
+    essay.content = content
+    essay.edit_count = (essay.edit_count or 0) + 1
+    essay.edited_at = datetime.utcnow()
+    essay.embedding_json = None
+    db.session.commit()
+
+    try:
+        from backend.services.embedding import get_embedding
+        essay.embedding_json = json.dumps(get_embedding(content))
+        db.session.commit()
+    except Exception as e:
+        import logging
+        logging.warning(f"Embedding generation failed for edited essay {essay.id}: {e}")
+
+    payload = essay_to_dict(essay, user.id)
+    emit_global('essay_updated', {'essay': payload})
+    return jsonify(payload)
+
+@essays_bp.route('/<int:essay_id>', methods=['DELETE'])
+def delete_essay(essay_id):
+    user = require_current_user()
+    essay = Essay.query.get_or_404(essay_id)
+
+    if essay.user_id != user.id:
+        return jsonify({'error': 'You can only delete your own post.'}), 403
+    if datetime.utcnow() - essay.created_at > POST_MANAGEMENT_WINDOW:
+        return jsonify({'error': 'Posts can only be deleted within 30 days of posting.'}), 403
+
+    db.session.delete(essay)
+    db.session.commit()
+    emit_global('essay_deleted', {'essay_id': essay_id, 'user_id': user.id})
+    return jsonify({'deleted': True, 'essay_id': essay_id})
 
 @essays_bp.route('/search', methods=['POST'])
 def search_essays():

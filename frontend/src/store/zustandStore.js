@@ -239,6 +239,26 @@ export const useStore = create((set, get) => ({
         }
       })
     })
+    socket.on('essay_updated', (payload) => {
+      const essay = payload.essay
+      if (!essay) return
+      set((state) => ({
+        essays: state.essays.map((item) => item.id === essay.id ? { ...item, ...essay } : item),
+        feedTimelineEssays: state.feedTimelineEssays.map((item) => item.id === essay.id ? { ...item, ...essay } : item),
+        searchResults: state.searchResults.map((item) => item.id === essay.id ? { ...item, ...essay } : item),
+        lastRealtimeEvent: { type: 'essay_updated', payload, receivedAt: Date.now() },
+      }))
+    })
+    socket.on('essay_deleted', (payload) => {
+      const essayId = payload.essay_id
+      set((state) => ({
+        essays: state.essays.filter((item) => item.id !== essayId),
+        feedTimelineEssays: state.feedTimelineEssays.filter((item) => item.id !== essayId),
+        searchResults: state.searchResults.filter((item) => item.id !== essayId),
+        essaysTotal: Math.max(0, state.essaysTotal - 1),
+        lastRealtimeEvent: { type: 'essay_deleted', payload, receivedAt: Date.now() },
+      }))
+    })
   },
 
   joinConversation: (conversationId) => {
@@ -391,7 +411,9 @@ export const useStore = create((set, get) => ({
   },
 
   fetchUserEssays: async (username) => {
+    const { user } = get()
     let url = `${API_BASE}/essays?username=${encodeURIComponent(username)}`
+    if (user.id) url += `&current_user_id=${encodeURIComponent(user.id)}`
     try {
       const res = await apiFetch(url)
       const d = await res.json()
@@ -458,6 +480,51 @@ export const useStore = create((set, get) => ({
         searchError: 'Network error',
       }))
       return null
+    }
+  },
+
+  updateEssay: async (essayId, content) => {
+    try {
+      const res = await apiFetch(`${API_BASE}/essays/${essayId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      })
+      const d = await res.json()
+      if (res.ok) {
+        set((state) => ({
+          essays: state.essays.map((essay) => essay.id === essayId ? { ...essay, ...d } : essay),
+          feedTimelineEssays: state.feedTimelineEssays.map((essay) => essay.id === essayId ? { ...essay, ...d } : essay),
+          searchResults: state.searchResults.map((essay) => essay.id === essayId ? { ...essay, ...d } : essay),
+        }))
+        return { success: true, essay: d }
+      }
+      return { success: false, error: d.error || 'Post could not be updated' }
+    } catch (e) {
+      return { success: false, error: 'Network error' }
+    }
+  },
+
+  deleteEssay: async (essayId) => {
+    try {
+      const res = await apiFetch(`${API_BASE}/essays/${essayId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const d = await res.json()
+      if (res.ok) {
+        set((state) => ({
+          essays: state.essays.filter((essay) => essay.id !== essayId),
+          feedTimelineEssays: state.feedTimelineEssays.filter((essay) => essay.id !== essayId),
+          searchResults: state.searchResults.filter((essay) => essay.id !== essayId),
+          essaysTotal: Math.max(0, state.essaysTotal - 1),
+        }))
+        return { success: true }
+      }
+      return { success: false, error: d.error || 'Post could not be deleted' }
+    } catch (e) {
+      return { success: false, error: 'Network error' }
     }
   },
 

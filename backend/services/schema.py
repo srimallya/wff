@@ -29,6 +29,8 @@ def ensure_schema():
     essay_additions = {
         'country': 'VARCHAR(80) NOT NULL DEFAULT "Global"',
         'country_code': 'VARCHAR(8) NOT NULL DEFAULT "GLOBAL"',
+        'edited_at': 'DATETIME',
+        'edit_count': 'INTEGER NOT NULL DEFAULT 0',
     }
     for column_name, column_type in essay_additions.items():
         if column_name not in essay_columns:

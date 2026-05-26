@@ -15,6 +15,8 @@ export default function Profile() {
     refreshSession,
     deleteAccount,
     fetchUserEssays,
+    updateEssay,
+    deleteEssay,
     resetFeedView,
     fetchNotificationKey,
     savePushSubscription,
@@ -26,6 +28,10 @@ export default function Profile() {
   const [deleting, setDeleting] = useState(false)
   const [myEssays, setMyEssays] = useState([])
   const [essaysLoading, setEssaysLoading] = useState(false)
+  const [editingEssayId, setEditingEssayId] = useState(null)
+  const [editContent, setEditContent] = useState('')
+  const [postActionBusy, setPostActionBusy] = useState(null)
+  const [postActionError, setPostActionError] = useState('')
   const [actionsOpen, setActionsOpen] = useState(false)
   const [activeView, setActiveView] = useState('messages')
   const [copiedUsername, setCopiedUsername] = useState(false)
@@ -78,6 +84,55 @@ export default function Profile() {
   const handleLogout = () => {
     clearUser()
     navigate('/')
+  }
+
+  const startEditEssay = (essay) => {
+    setPostActionError('')
+    setEditingEssayId(essay.id)
+    setEditContent(essay.content)
+  }
+
+  const cancelEditEssay = () => {
+    setEditingEssayId(null)
+    setEditContent('')
+    setPostActionError('')
+  }
+
+  const saveEditEssay = async (essayId) => {
+    const content = editContent.trim()
+    if (content.length < 50) {
+      setPostActionError('Post must be at least 50 characters')
+      return
+    }
+    if (content.length > 2000) {
+      setPostActionError('Post must be at most 2000 characters')
+      return
+    }
+    setPostActionBusy(`edit-${essayId}`)
+    setPostActionError('')
+    const result = await updateEssay(essayId, content)
+    setPostActionBusy(null)
+    if (!result.success) {
+      setPostActionError(result.error)
+      return
+    }
+    setMyEssays((items) => items.map((essay) => essay.id === essayId ? { ...essay, ...result.essay } : essay))
+    setEditingEssayId(null)
+    setEditContent('')
+  }
+
+  const removeEssay = async (essayId) => {
+    const confirmed = window.confirm('Delete this post permanently?')
+    if (!confirmed) return
+    setPostActionBusy(`delete-${essayId}`)
+    setPostActionError('')
+    const result = await deleteEssay(essayId)
+    setPostActionBusy(null)
+    if (!result.success) {
+      setPostActionError(result.error)
+      return
+    }
+    setMyEssays((items) => items.filter((essay) => essay.id !== essayId))
   }
 
   const closeActions = () => {
@@ -436,9 +491,66 @@ export default function Profile() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {myEssays.map((essay) => (
-                      <EssayCard key={essay.id} essay={essay} />
-                    ))}
+                    {postActionError && <p className="border-l border-primary pl-3 text-sm text-red-500">{postActionError}</p>}
+                    {myEssays.map((essay) => {
+                      const isEditing = editingEssayId === essay.id
+                      const editLen = editContent.trim().length
+                      const isSaving = postActionBusy === `edit-${essay.id}`
+                      const isDeletingPost = postActionBusy === `delete-${essay.id}`
+                      return (
+                        <div key={essay.id} className="space-y-3">
+                          <EssayCard essay={essay} />
+                          {isEditing ? (
+                            <div className="border-t border-dark-border pt-4 space-y-3">
+                              <textarea
+                                value={editContent}
+                                onChange={(event) => setEditContent(event.target.value)}
+                                maxLength={2000}
+                                className="w-full h-48 resize-none border-0 border-b px-0 py-3 text-sm focus:outline-none focus:border-primary"
+                              />
+                              <div className="flex items-center justify-between gap-3">
+                                <span className={`text-sm ${editLen < 50 || editLen > 2000 ? 'text-red-500' : 'text-gray-500'}`}>
+                                  {editLen < 50 ? `${50 - editLen} more characters` : `${editLen} / 2000`}
+                                </span>
+                                <div className="flex items-center gap-4">
+                                  <IconButton type="button" onClick={cancelEditEssay} icon="close" label="Cancel" />
+                                  <IconButton
+                                    type="button"
+                                    onClick={() => saveEditEssay(essay.id)}
+                                    disabled={isSaving || editLen < 50 || editLen > 2000}
+                                    icon="check"
+                                    label={isSaving ? 'Saving' : 'Save edit'}
+                                    className="icon-button-primary"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ) : (essay.can_edit || essay.can_delete) && (
+                            <div className="flex items-center justify-end gap-5 border-t border-dark-border pt-3">
+                              {essay.can_edit && (
+                                <IconButton
+                                  type="button"
+                                  onClick={() => startEditEssay(essay)}
+                                  disabled={Boolean(postActionBusy)}
+                                  icon="edit"
+                                  label="Edit"
+                                  className="icon-button-primary"
+                                />
+                              )}
+                              {essay.can_delete && (
+                                <IconButton
+                                  type="button"
+                                  onClick={() => removeEssay(essay.id)}
+                                  disabled={Boolean(postActionBusy)}
+                                  icon="delete"
+                                  label={isDeletingPost ? 'Deleting' : 'Delete'}
+                                />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
