@@ -5,66 +5,14 @@ import json
 from sqlalchemy import func
 from backend.routes.auth import require_current_user
 from backend.services.realtime import emit_global
+from backend.services.search_service import (
+    calculate_age_from_birthdate,
+    essay_to_dict,
+    search_essays_hierarchical,
+)
 
 essays_bp = Blueprint('wff_essays', __name__)
 POST_MANAGEMENT_WINDOW = timedelta(days=30)
-
-QUERY_EXPANSIONS = {
-    'green': ['climate', 'environment', 'sustainability'],
-}
-
-def calculate_age_from_birthdate(birthdate_str):
-    try:
-        birth_date = datetime.strptime(birthdate_str, '%Y-%m-%d')
-        today = datetime.now()
-        age = today.year - birth_date.year
-        if (today.month, today.day) < (birth_date.month, birth_date.day):
-            age -= 1
-        return age
-    except:
-        return None
-
-def essay_management_status(e, current_user_id=None):
-    is_owner = bool(current_user_id and e.user_id == current_user_id)
-    within_window = bool(e.created_at and datetime.utcnow() - e.created_at <= POST_MANAGEMENT_WINDOW)
-    edit_count = e.edit_count or 0
-    return {
-        'is_owner': is_owner,
-        'can_edit': is_owner and within_window and edit_count < 1,
-        'can_delete': is_owner and within_window,
-        'edit_count': edit_count,
-        'edited_at': e.edited_at.isoformat() if e.edited_at else None,
-    }
-
-def essay_to_dict(e, current_user_id=None):
-    user = User.query.get(e.user_id)
-    current_age = calculate_age_from_birthdate(user.birthdate) if user and user.birthdate else None
-
-    user_vote = None
-    if current_user_id:
-        vote = Vote.query.filter_by(user_id=current_user_id, essay_id=e.id).first()
-        if vote:
-            user_vote = vote.value
-
-    return {
-        'id': e.id,
-        'username': user.username if user else 'Unknown',
-        'content': e.content,
-        'country': e.country or 'Global',
-        'country_code': e.country_code or 'GLOBAL',
-        'look_ahead_months': e.look_ahead_months,
-        'target_calendar_year': e.target_calendar_year,
-        'author_current_age': current_age,
-        'target_age': e.target_age,
-        'created_at': e.created_at.isoformat(),
-        **essay_management_status(e, current_user_id),
-        'is_policy_proposal': e.is_policy_proposal,
-        'upvotes': e.upvotes,
-        'downvotes': e.downvotes,
-        'score': e.score,
-        'user_vote': user_vote,
-        'comment_count': len(e.comments),
-    }
 
 def comment_to_dict(comment, current_user_id=None):
     user_vote = None
@@ -84,15 +32,6 @@ def comment_to_dict(comment, current_user_id=None):
         'score': comment.score,
         'user_vote': user_vote,
     }
-
-def search_terms_for_query(query):
-    normalized_query = query.lower().strip()
-    terms = {normalized_query}
-
-    for token in normalized_query.split():
-        terms.update(QUERY_EXPANSIONS.get(token, []))
-
-    return [term for term in terms if len(term) > 1]
 
 @essays_bp.route('', methods=['GET'])
 def get_essays():
@@ -143,17 +82,20 @@ def get_year_counts():
     current_year = datetime.now().year
     start_year = request.args.get('start_year', current_year, type=int)
     end_year = request.args.get('end_year', current_year + 100, type=int)
+    country_code = request.args.get('country_code', type=str)
 
     if end_year < start_year:
         start_year, end_year = end_year, start_year
 
-    rows = (
+    query = (
         db.session.query(Essay.target_calendar_year, func.count(Essay.id))
         .filter(Essay.target_calendar_year >= start_year)
         .filter(Essay.target_calendar_year <= end_year)
-        .group_by(Essay.target_calendar_year)
-        .all()
     )
+    if country_code:
+        query = query.filter(Essay.country_code == country_code.strip().upper())
+
+    rows = query.group_by(Essay.target_calendar_year).all()
     counts_by_year = {year: count for year, count in rows}
     counts = [
         {'year': year, 'count': counts_by_year.get(year, 0)}
@@ -303,52 +245,13 @@ def search_essays():
     except (TypeError, ValueError):
         current_user_id = None
 
-    if not query:
-        return jsonify({'essays': [], 'total': 0})
-
-    search_terms = search_terms_for_query(query)
-    essays = Essay.query.all()
-    lexical_matches = [
-        essay for essay in essays
-        if any(term in essay.content.lower() for term in search_terms)
-    ]
-
-    if lexical_matches:
-        lexical_matches.sort(key=lambda essay: essay.created_at, reverse=True)
-        top = [essay_to_dict(e, current_user_id) for e in lexical_matches[:limit]]
-        return jsonify({'essays': top, 'total': len(top)})
-
-    try:
-        import numpy as np
-        from backend.services.embedding import get_embedding, embedding_from_json, cosine_similarity
-        query_emb = np.array(get_embedding(query), dtype=np.float32)
-    except Exception as e:
-        return jsonify({'error': f'Search unavailable: {str(e)}'}), 503
-
-    scored = []
-
-    for essay in essays:
-        if essay.embedding_json:
-            emb = embedding_from_json(essay.embedding_json)
-            if emb is not None:
-                sim = cosine_similarity(query_emb, emb)
-                scored.append((sim, essay))
-        else:
-            # Fallback: generate embedding on-the-fly if missing
-            try:
-                emb = np.array(get_embedding(essay.content), dtype=np.float32)
-                sim = cosine_similarity(query_emb, emb)
-                scored.append((sim, essay))
-                # Cache it
-                essay.embedding_json = json.dumps(emb.tolist())
-                db.session.commit()
-            except Exception:
-                pass
-
-    scored.sort(key=lambda x: x[0], reverse=True)
-    top = [essay_to_dict(e, current_user_id) for _, e in scored[:limit]]
-
-    return jsonify({'essays': top, 'total': len(top)})
+    return jsonify(search_essays_hierarchical(
+        query=query,
+        country_code=data.get('country_code'),
+        year=data.get('year'),
+        current_user_id=current_user_id,
+        limit=limit,
+    ))
 
 @essays_bp.route('/<int:essay_id>/vote', methods=['POST'])
 def vote_essay(essay_id):

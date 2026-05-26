@@ -62,6 +62,9 @@ export const useStore = create((set, get) => ({
   feedYearCountsLoading: false,
   searchQuery: '',
   searchResults: [],
+  searchFacets: { countries: [], years: [] },
+  searchAppliedFilters: { query: '', country_code: null, year: null },
+  searchYearCounts: [],
   isSearching: false,
   searchError: null,
   messageSearchResults: [],
@@ -270,13 +273,32 @@ export const useStore = create((set, get) => ({
     if (socket?.connected && user.username) socket.emit('wff_join_chatroom', {})
   },
 
-  setFeedYear: (year) => set((s) => ({ feedFilter: { ...s.feedFilter, year, active: true } })),
-  setFeedCountry: (countryCode) => set((s) => ({ feedFilter: { ...s.feedFilter, countryCode } })),
-  clearFeedFilter: () => set((s) => ({ feedFilter: { ...s.feedFilter, year: null, active: false } })),
+  setFeedYear: (year) => {
+    set((s) => ({ feedFilter: { ...s.feedFilter, year, active: true } }))
+    const { searchQuery, searchEssays } = get()
+    if (searchQuery) searchEssays(searchQuery)
+  },
+  setFeedCountry: (countryCode) => {
+    const { searchQuery } = get()
+    set((s) => ({
+      feedFilter: searchQuery
+        ? { ...s.feedFilter, countryCode, year: null, active: false }
+        : { ...s.feedFilter, countryCode },
+    }))
+    if (searchQuery) get().searchEssays(searchQuery)
+  },
+  clearFeedFilter: () => {
+    set((s) => ({ feedFilter: { ...s.feedFilter, year: null, active: false } }))
+    const { searchQuery, searchEssays } = get()
+    if (searchQuery) searchEssays(searchQuery)
+  },
   resetFeedView: () => set({
     feedFilter: { year: null, active: false, countryCode: '' },
     searchQuery: '',
     searchResults: [],
+    searchFacets: { countries: [], years: [] },
+    searchAppliedFilters: { query: '', country_code: null, year: null },
+    searchYearCounts: [],
     isSearching: false,
     searchError: null,
   }),
@@ -398,10 +420,20 @@ export const useStore = create((set, get) => ({
   },
 
   fetchFeedYearCounts: async () => {
+    const { feedFilter, searchQuery, searchYearCounts } = get()
+    if (searchQuery) {
+      set({ feedYearCounts: searchYearCounts, feedYearCountsLoading: false })
+      return
+    }
     const currentYear = new Date().getFullYear()
     set({ feedYearCountsLoading: true })
     try {
-      const res = await apiFetch(`${API_BASE}/essays/year-counts?start_year=${currentYear}&end_year=${currentYear + 100}`)
+      const params = new URLSearchParams({
+        start_year: String(currentYear),
+        end_year: String(currentYear + 100),
+      })
+      if (feedFilter.countryCode) params.set('country_code', feedFilter.countryCode)
+      const res = await apiFetch(`${API_BASE}/essays/year-counts?${params.toString()}`)
       const d = await res.json()
       set({ feedYearCounts: d.counts || [], feedYearCountsLoading: false })
     } catch (e) {
@@ -543,20 +575,42 @@ export const useStore = create((set, get) => ({
 
   searchEssays: async (query) => {
     if (!query || !query.trim()) {
-      set({ searchQuery: '', searchResults: [], isSearching: false, searchError: null })
+      set({
+        searchQuery: '',
+        searchResults: [],
+        searchFacets: { countries: [], years: [] },
+        searchAppliedFilters: { query: '', country_code: null, year: null },
+        searchYearCounts: [],
+        isSearching: false,
+        searchError: null,
+      })
       return
     }
-    const { user } = get()
+    const { feedFilter, user } = get()
     set({ searchQuery: query.trim(), isSearching: true, searchError: null })
     try {
       const res = await apiFetch(`${API_BASE}/essays/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: query.trim(), current_user_id: user.id || undefined }),
+        body: JSON.stringify({
+          query: query.trim(),
+          country_code: feedFilter.countryCode || undefined,
+          year: feedFilter.active && feedFilter.year != null ? feedFilter.year : undefined,
+          current_user_id: user.id || undefined,
+        }),
       })
       const d = await res.json()
       if (res.ok) {
-        set({ searchResults: d.essays || [], isSearching: false, essaysTotal: d.total || 0 })
+        const facets = d.facets || { countries: [], years: [] }
+        set({
+          searchResults: d.essays || [],
+          searchFacets: facets,
+          searchAppliedFilters: d.applied_filters || { query: query.trim(), country_code: feedFilter.countryCode || null, year: feedFilter.active ? feedFilter.year : null },
+          searchYearCounts: facets.years || [],
+          feedYearCounts: facets.years || [],
+          isSearching: false,
+          essaysTotal: d.total || 0,
+        })
       } else {
         set({ searchResults: [], isSearching: false, searchError: d.error || 'Search failed' })
       }
@@ -565,7 +619,15 @@ export const useStore = create((set, get) => ({
     }
   },
 
-  clearSearch: () => set({ searchQuery: '', searchResults: [], isSearching: false, searchError: null }),
+  clearSearch: () => set({
+    searchQuery: '',
+    searchResults: [],
+    searchFacets: { countries: [], years: [] },
+    searchAppliedFilters: { query: '', country_code: null, year: null },
+    searchYearCounts: [],
+    isSearching: false,
+    searchError: null,
+  }),
 
   searchMessageUsers: async (query) => {
     const { user } = get()

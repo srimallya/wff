@@ -6,9 +6,11 @@ import { IconButton } from './Icons'
 export default function FeedFilters() {
   const {
     feedFilter, setFeedYear, clearFeedFilter, essaysTotal,
-    feedYearCounts, fetchFeedYearCounts, feedTimelineEssays, essays, setFeedCountry
+    feedYearCounts, fetchFeedYearCounts, feedTimelineEssays, essays, setFeedCountry,
+    searchQuery, searchYearCounts, searchResults
   } = useStore()
   const currentYear = new Date().getFullYear()
+  const activeYearCounts = searchQuery ? searchYearCounts : feedYearCounts
 
   const sliderValue = feedFilter.year ?? currentYear
   const displayLabel = feedFilter.active ? feedFilter.year : 'All years'
@@ -16,7 +18,7 @@ export default function FeedFilters() {
 
   useEffect(() => {
     fetchFeedYearCounts()
-  }, [fetchFeedYearCounts])
+  }, [fetchFeedYearCounts, feedFilter.countryCode, searchQuery, searchYearCounts])
 
   const { areaPath, hasPosts } = useMemo(() => {
     const fallback = Array.from({ length: 101 }, (_, index) => ({
@@ -24,15 +26,17 @@ export default function FeedFilters() {
       count: 0,
     }))
     const counts = fallback.map((item) => ({ ...item }))
-    const hasSummaryCounts = feedYearCounts.some((item) => item.count > 0)
+    const hasSummaryCounts = activeYearCounts.some((item) => item.count > 0)
 
     if (hasSummaryCounts) {
-      feedYearCounts.forEach((item) => {
+      activeYearCounts.forEach((item) => {
         const index = item.year - currentYear
         if (index >= 0 && index < counts.length) counts[index].count = item.count
       })
     } else {
-      const sourceEssays = feedTimelineEssays.length > 0 ? feedTimelineEssays : essays
+      const sourceEssays = searchQuery
+        ? searchResults
+        : (feedTimelineEssays.length > 0 ? feedTimelineEssays : essays)
       sourceEssays.forEach((essay) => {
         const index = essay.target_calendar_year - currentYear
         if (index >= 0 && index < counts.length) counts[index].count += 1
@@ -68,7 +72,7 @@ export default function FeedFilters() {
       areaPath: path,
       hasPosts: maxCount > 0,
     }
-  }, [currentYear, feedYearCounts, feedTimelineEssays, essays])
+  }, [currentYear, activeYearCounts, feedTimelineEssays, essays, searchQuery, searchResults])
 
   return (
     <div className="swiss-panel no-top-divider space-y-4">

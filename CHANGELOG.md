@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.3.0
+
+### Search And Discovery
+
+- Added hierarchical search facets for the Forum feed: query first, country/global second, timeline third.
+- Refactored search into `backend/services/search_service.py` with lexical matches first and semantic matches second.
+- Extended `POST /api/essays/search` to accept `country_code`, `year`, `current_user_id`, and `limit` while preserving the existing `essays` and `total` response fields.
+- Added contextual search facets for country counts and year counts.
+- Kept year facets scoped to query + country before applying the selected year, so the timeline distribution remains visible while narrowing the result set.
+- Updated normal feed year counts to respect the selected country.
+- Reused the existing Feed page, search panel, country selector, and timeline slider for active search.
+- Kept the Forum navigation reset path centralized through `resetFeedView`, clearing search state, filters, and contextual facets.
+- Added backend and Zustand store tests for hierarchical search, contextual histograms, semantic fallback, and reset behavior.
+
 ## v1.2.0
 
 World Foresight Forum is currently treated as v1.2. This release establishes the global English WFF product, hardens private messaging, moves the interface toward the Swiss design direction, fixes production posting, adds internal graph infrastructure for ranking, and improves PWA/social identity.

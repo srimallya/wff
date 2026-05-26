@@ -4,7 +4,7 @@ A global public foresight and policy forum for possible futures.
 
 People write time-capsule posts about the futures they think are coming, attach a target year and country, then read, search, vote, and discuss the public forecasts other people are willing to name.
 
-Current product version: `v1.2`
+Current product version: `v1.3`
 
 Production path: `https://thetrustcommons.com/wff/`
 

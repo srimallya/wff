@@ -11,16 +11,16 @@ export default function Feed() {
   const {
     user, fetchEssays, essays, feedFilter,
     searchQuery, searchResults, isSearching, searchError, searchEssays, clearSearch,
-    resetFeedView
   } = useStore()
   const [loading, setLoading] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
 
   useEffect(() => {
+    if (searchQuery) return
     setLoading(true)
     fetchEssays().finally(() => setLoading(false))
-  }, [feedFilter])
+  }, [feedFilter, searchQuery, fetchEssays])
 
   const handleSearchSubmit = (e) => {
     e.preventDefault()
@@ -111,7 +111,7 @@ export default function Feed() {
               </div>
             )}
 
-            {!searchQuery && <FeedFilters />}
+            <FeedFilters />
           </div>
         </section>
 
