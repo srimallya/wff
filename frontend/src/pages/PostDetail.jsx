@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { API_BASE } from '../api'
 import { useStore } from '../store/zustandStore'
 import EssayCard from '../components/EssayCard'
@@ -22,7 +22,7 @@ function CommentCard({ comment, onVote, onReply, replyingTo, replyContent, setRe
   }
 
   return (
-    <div className="border-t border-dark-border py-4">
+    <div id={`comment-${comment.id}`} className="scroll-mt-24 border-t border-dark-border py-4">
       <div className="flex gap-4">
         <div className="flex flex-col items-center gap-1">
           <button onClick={() => handleVote(1)} className={userVote === 1 ? 'text-primary' : 'text-gray-500 hover:text-primary'}>▲</button>
@@ -58,7 +58,7 @@ function CommentCard({ comment, onVote, onReply, replyingTo, replyContent, setRe
           {comment.replies?.length > 0 && (
             <div className="space-y-3 border-l border-dark-border pl-4">
               {comment.replies.map((reply) => (
-                <div key={reply.id} className="space-y-1">
+                <div id={`comment-${reply.id}`} key={reply.id} className="scroll-mt-24 space-y-1">
                   <div className="text-xs text-gray-500">
                     <span className="font-semibold text-primary">{reply.username}</span>
                     <span className="mx-2">•</span>
@@ -77,6 +77,7 @@ function CommentCard({ comment, onVote, onReply, replyingTo, replyContent, setRe
 
 export default function PostDetail() {
   const { postId } = useParams()
+  const location = useLocation()
   const navigate = useNavigate()
   const { user } = useStore()
   const [post, setPost] = useState(null)
@@ -114,6 +115,12 @@ export default function PostDetail() {
   useEffect(() => {
     loadPost()
   }, [postId, user.id])
+
+  useEffect(() => {
+    if (loading || !location.hash) return
+    const target = document.getElementById(location.hash.slice(1))
+    if (target) target.scrollIntoView({ block: 'center' })
+  }, [loading, comments, location.hash])
 
   const submitComment = async (event) => {
     event.preventDefault()

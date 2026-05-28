@@ -317,3 +317,23 @@ class PushSubscription(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = db.relationship('backend.models.User', foreign_keys=[user_id])
+
+class Notification(db.Model):
+    __bind_key__ = WFF_BIND_KEY
+    __tablename__ = 'wff_notification'
+
+    id = db.Column(db.Integer, primary_key=True)
+    recipient_id = db.Column(db.Integer, db.ForeignKey('wff_user.id'), nullable=False)
+    actor_id = db.Column(db.Integer, db.ForeignKey('wff_user.id'), nullable=False)
+    kind = db.Column(db.String(32), nullable=False)
+    essay_id = db.Column(db.Integer, db.ForeignKey('wff_essay.id'), nullable=False)
+    comment_id = db.Column(db.Integer, db.ForeignKey('wff_comment.id'), nullable=False)
+    parent_comment_id = db.Column(db.Integer, db.ForeignKey('wff_comment.id'), nullable=True)
+    message = db.Column(db.String(240), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    read_at = db.Column(db.DateTime, nullable=True)
+
+    recipient = db.relationship('backend.models.User', foreign_keys=[recipient_id])
+    actor = db.relationship('backend.models.User', foreign_keys=[actor_id])
+    essay = db.relationship('backend.models.Essay', foreign_keys=[essay_id])
+    comment = db.relationship('backend.models.Comment', foreign_keys=[comment_id])

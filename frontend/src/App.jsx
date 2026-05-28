@@ -8,6 +8,7 @@ import Compose from './pages/Compose'
 import Feed from './pages/Feed'
 import PostDetail from './pages/PostDetail'
 import Profile from './pages/Profile'
+import Notifications from './pages/Notifications'
 import Messages from './pages/Messages'
 import Conversation from './pages/Conversation'
 import { useStore } from './store/zustandStore'
@@ -53,6 +54,7 @@ function App() {
           <Route path="/feed" element={<Feed />} />
           <Route path="/posts/:postId" element={<PostDetail />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/notifications" element={<Notifications />} />
           <Route path="/messages" element={<Messages />} />
           <Route path="/messages/:conversationId" element={<Conversation />} />
         </Routes>

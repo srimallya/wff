@@ -21,7 +21,9 @@ export default function BottomNav() {
     <nav className="bottom-tabbar" aria-label="Primary">
       <div className="bottom-tabbar-inner" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
         {items.map((item) => {
-          const active = location.pathname === item.path || (item.path === '/profile' && location.pathname.startsWith('/messages'))
+          const active = location.pathname === item.path || (item.path === '/profile' && (
+            location.pathname.startsWith('/messages') || location.pathname.startsWith('/notifications')
+          ))
           return (
             <button
               key={item.label}

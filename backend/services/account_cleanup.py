@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from backend.models import Conversation, MessageRequest, PushSubscription, User, Vote, db
+from backend.models import Conversation, MessageRequest, Notification, PushSubscription, User, Vote, db
 
 
 def can_use_private_features(user):
@@ -18,6 +18,9 @@ def delete_private_user_data(user):
         (MessageRequest.sender_id == user.id) | (MessageRequest.receiver_id == user.id)
     ).delete(synchronize_session=False)
     PushSubscription.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+    Notification.query.filter(
+        (Notification.recipient_id == user.id) | (Notification.actor_id == user.id)
+    ).delete(synchronize_session=False)
     Vote.query.filter_by(user_id=user.id).delete(synchronize_session=False)
 
     conversations = Conversation.query.filter(

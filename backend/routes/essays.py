@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from backend.models import db, Essay, User, Vote, Comment, CommentVote
+from backend.models import db, Essay, User, Vote, Comment, CommentVote, Notification
 from datetime import datetime, timedelta
 import json
 from sqlalchemy import func
@@ -32,6 +32,31 @@ def comment_to_dict(comment, current_user_id=None):
         'score': comment.score,
         'user_vote': user_vote,
     }
+
+def notification_message(actor, kind):
+    if kind == 'comment_reply':
+        return f'{actor.username} replied to your comment'
+    return f'{actor.username} commented on your post'
+
+def add_comment_notifications(comment, essay, actor, parent=None):
+    recipients = []
+
+    if parent and parent.user_id != actor.id:
+        recipients.append((parent.user_id, 'comment_reply'))
+
+    if essay.user_id != actor.id and (not parent or essay.user_id != parent.user_id):
+        recipients.append((essay.user_id, 'post_comment'))
+
+    for recipient_id, kind in recipients:
+        db.session.add(Notification(
+            recipient_id=recipient_id,
+            actor_id=actor.id,
+            kind=kind,
+            essay_id=essay.id,
+            comment_id=comment.id,
+            parent_comment_id=parent.id if parent else None,
+            message=notification_message(actor, kind),
+        ))
 
 @essays_bp.route('', methods=['GET'])
 def get_essays():
@@ -341,6 +366,8 @@ def create_comment(essay_id):
 
     comment = Comment(essay_id=essay.id, user_id=user.id, parent_id=parent.id if parent else None, content=content)
     db.session.add(comment)
+    db.session.flush()
+    add_comment_notifications(comment, essay, user, parent)
     db.session.commit()
     return jsonify(comment_to_dict(comment, user.id)), 201
 

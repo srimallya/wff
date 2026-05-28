@@ -268,9 +268,22 @@ export default function Profile() {
           <p className="app-kicker">World Foresight Forum</p>
           <div className="mt-2 flex items-end justify-between gap-4">
             <h1 className="app-title">Profile</h1>
-            <button type="button" onClick={() => setActionsOpen(true)} className="swiss-action text-sm">
-              Account
-            </button>
+            <div className="flex items-center gap-4">
+              {canUsePrivateFeatures && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/notifications')}
+                  aria-label="Notifications"
+                  title="Notifications"
+                  className="text-primary"
+                >
+                  <Icon name="bell" className="h-5 w-5" />
+                </button>
+              )}
+              <button type="button" onClick={() => setActionsOpen(true)} className="swiss-action text-sm">
+                Account
+              </button>
+            </div>
           </div>
         </div>
       </header>

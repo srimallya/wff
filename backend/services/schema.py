@@ -102,6 +102,28 @@ def ensure_schema():
             )
         ''')
 
+    if 'wff_notification' not in table_names:
+        execute('''
+            CREATE TABLE wff_notification (
+                id INTEGER NOT NULL PRIMARY KEY,
+                recipient_id INTEGER NOT NULL,
+                actor_id INTEGER NOT NULL,
+                kind VARCHAR(32) NOT NULL,
+                essay_id INTEGER NOT NULL,
+                comment_id INTEGER NOT NULL,
+                parent_comment_id INTEGER,
+                message VARCHAR(240) NOT NULL,
+                created_at DATETIME,
+                read_at DATETIME,
+                FOREIGN KEY(recipient_id) REFERENCES "wff_user" (id),
+                FOREIGN KEY(actor_id) REFERENCES "wff_user" (id),
+                FOREIGN KEY(essay_id) REFERENCES "wff_essay" (id),
+                FOREIGN KEY(comment_id) REFERENCES "wff_comment" (id),
+                FOREIGN KEY(parent_comment_id) REFERENCES "wff_comment" (id)
+            )
+        ''')
+        execute('CREATE INDEX ix_wff_notification_recipient_created ON wff_notification (recipient_id, created_at)')
+
     if 'wff_comment' in table_names:
         comment_columns = {column['name'] for column in inspector.get_columns('wff_comment')}
         if 'parent_id' not in comment_columns:
