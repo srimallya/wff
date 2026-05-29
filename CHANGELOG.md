@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.3.1
+
+### Notifications
+
+- Added a red notification bell to the Profile header for registered writing accounts.
+- Added a notifications inbox showing the latest 20 comment notifications.
+- Added stored notifications for comments on a user's post and replies to a user's comment.
+- Notification items link directly to the relevant post and comment anchor.
+
+### Writing Limits
+
+- Increased public post content limit from 2,000 to 5,000 characters.
+- Increased post comment and reply limit from 1,000 to 5,000 characters.
+
 ## v1.3.0
 
 ### Search And Discovery

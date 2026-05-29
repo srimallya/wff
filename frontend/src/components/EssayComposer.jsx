@@ -11,7 +11,7 @@ export default function EssayComposer({ onSubmit, isSubmitting }) {
   const [content, setContent] = useState('')
 
   const len = content.trim().length
-  const isValid = len >= 50 && len <= 2000 && lookAheadMonths > 0
+  const isValid = len >= 50 && len <= 5000 && lookAheadMonths > 0
 
   const handleSubmit = () => {
     if (!isValid) return
@@ -99,20 +99,20 @@ export default function EssayComposer({ onSubmit, isSubmitting }) {
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          maxLength={2000}
+          maxLength={5000}
           placeholder="Write a public foresight note about policy, governance, climate, technology, education, cities, culture, work, or everyday life..."
           className="w-full h-64 resize-none border-0 border-b px-0 py-3 text-sm focus:outline-none focus:border-primary"
         />
 
         <div className="flex items-center justify-between">
           <span className={`text-sm ${
-            len < 50 || len > 2000 ? 'text-red-500' : 'text-gray-400'
+            len < 50 || len > 5000 ? 'text-red-500' : 'text-gray-400'
           }`}>
             {len < 50
               ? `Write ${50 - len} more characters`
-              : len > 2000
-              ? `2000 character limit exceeded`
-              : `${len} / 2000 characters`}
+              : len > 5000
+              ? `5000 character limit exceeded`
+              : `${len} / 5000 characters`}
           </span>
 
           <IconButton

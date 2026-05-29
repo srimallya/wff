@@ -106,8 +106,8 @@ export default function Profile() {
       setPostActionError('Post must be at least 50 characters')
       return
     }
-    if (content.length > 2000) {
-      setPostActionError('Post must be at most 2000 characters')
+    if (content.length > 5000) {
+      setPostActionError('Post must be at most 5000 characters')
       return
     }
     setPostActionBusy(`edit-${essayId}`)
@@ -545,19 +545,19 @@ export default function Profile() {
                               <textarea
                                 value={editContent}
                                 onChange={(event) => setEditContent(event.target.value)}
-                                maxLength={2000}
+                                maxLength={5000}
                                 className="w-full h-48 resize-none border-0 border-b px-0 py-3 text-sm focus:outline-none focus:border-primary"
                               />
                               <div className="flex items-center justify-between gap-3">
-                                <span className={`text-sm ${editLen < 50 || editLen > 2000 ? 'text-red-500' : 'text-gray-500'}`}>
-                                  {editLen < 50 ? `${50 - editLen} more characters` : `${editLen} / 2000`}
+                                <span className={`text-sm ${editLen < 50 || editLen > 5000 ? 'text-red-500' : 'text-gray-500'}`}>
+                                  {editLen < 50 ? `${50 - editLen} more characters` : `${editLen} / 5000`}
                                 </span>
                                 <div className="flex items-center gap-4">
                                   <IconButton type="button" onClick={cancelEditEssay} icon="close" label="Cancel" />
                                   <IconButton
                                     type="button"
                                     onClick={() => saveEditEssay(essay.id)}
-                                    disabled={isSaving || editLen < 50 || editLen > 2000}
+                                    disabled={isSaving || editLen < 50 || editLen > 5000}
                                     icon="check"
                                     label={isSaving ? 'Saving' : 'Save edit'}
                                     className="icon-button-primary"

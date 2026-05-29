@@ -151,8 +151,8 @@ def create_essay():
     content = data.get('content', '')
     if not content or len(content) < 50:
         return jsonify({'error': 'Content must be at least 50 characters'}), 400
-    if len(content) > 2000:
-        return jsonify({'error': 'Content must be at most 2000 characters'}), 400
+    if len(content) > 5000:
+        return jsonify({'error': 'Content must be at most 5000 characters'}), 400
 
     username = data.get('username')
     user = User.query.filter_by(username=username).first()
@@ -221,8 +221,8 @@ def update_essay(essay_id):
     content = str(data.get('content') or '').strip()
     if not content or len(content) < 50:
         return jsonify({'error': 'Content must be at least 50 characters'}), 400
-    if len(content) > 2000:
-        return jsonify({'error': 'Content must be at most 2000 characters'}), 400
+    if len(content) > 5000:
+        return jsonify({'error': 'Content must be at most 5000 characters'}), 400
 
     essay.content = content
     essay.edit_count = (essay.edit_count or 0) + 1
@@ -352,8 +352,8 @@ def create_comment(essay_id):
     content = str(data.get('content') or '').strip()
     if len(content) < 2:
         return jsonify({'error': 'Comment must be at least 2 characters'}), 400
-    if len(content) > 1000:
-        return jsonify({'error': 'Comment must be at most 1000 characters'}), 400
+    if len(content) > 5000:
+        return jsonify({'error': 'Comment must be at most 5000 characters'}), 400
 
     parent_id = data.get('parent_id')
     parent = None

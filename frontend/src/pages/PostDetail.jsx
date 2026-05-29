@@ -44,13 +44,13 @@ function CommentCard({ comment, onVote, onReply, replyingTo, replyContent, setRe
             <form onSubmit={(event) => submitReply(event, comment.id)} className="space-y-2 pt-2">
               <textarea
                 value={replyContent}
-                onChange={(event) => setReplyContent(event.target.value.slice(0, 1000))}
+                onChange={(event) => setReplyContent(event.target.value.slice(0, 5000))}
                 placeholder="Reply to this comment..."
                 rows={3}
                 className="w-full resize-none border-0 border-b px-0 py-2 text-sm focus:border-primary focus:outline-none"
               />
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">{replyContent.length}/1000</span>
+                <span className="text-xs text-gray-500">{replyContent.length}/5000</span>
                 <IconButton type="submit" label={submittingReply ? 'Replying' : 'Post reply'} disabled={submittingReply || replyContent.trim().length < 2} className="icon-button-primary" />
               </div>
             </form>
@@ -211,13 +211,13 @@ export default function PostDetail() {
                   {error && <p className="text-sm text-red-600">{error}</p>}
                   <textarea
                     value={content}
-                    onChange={(event) => setContent(event.target.value.slice(0, 1000))}
+                    onChange={(event) => setContent(event.target.value.slice(0, 5000))}
                     placeholder="Add to the discussion..."
                     rows={4}
                     className="w-full resize-none border-0 border-b px-0 py-3 text-sm focus:border-primary focus:outline-none"
                   />
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">{content.length}/1000</span>
+                    <span className="text-xs text-gray-500">{content.length}/5000</span>
                     <IconButton type="submit" icon="send" label={submitting ? 'Posting' : 'Post comment'} disabled={submitting || content.trim().length < 2} className="icon-button-primary" />
                   </div>
                 </form>
