@@ -362,6 +362,14 @@ select:focus,
   }
 }
 
+.compose-page main,
+.compose-page input:not([type="range"]),
+.compose-page textarea,
+.compose-page select,
+.compose-page .text-base {
+  font-size: 14px !important;
+}
+
 input::placeholder,
 textarea::placeholder {
   color: var(--wff-faint);
