@@ -2,10 +2,30 @@ import { create } from 'zustand'
 import { io } from 'socket.io-client'
 import { API_BASE, apiFetch } from '../api'
 import { AstrClientError, createAstrPacket, decryptConversation, ensureKeyBundleRegistered } from '../services/astrClient'
+import { clearAstrPeerState } from '../services/astrStateStore'
 
 const socketPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/socket.io`
 const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin
 let socket = null
+const FRIEND_NICKNAMES_KEY = 'wff_friend_nicknames'
+
+function forgetFriendNickname(username) {
+  if (!username) return
+  try {
+    const nicknames = JSON.parse(localStorage.getItem(FRIEND_NICKNAMES_KEY) || '{}')
+    if (!Object.prototype.hasOwnProperty.call(nicknames, username)) return
+    delete nicknames[username]
+    localStorage.setItem(FRIEND_NICKNAMES_KEY, JSON.stringify(nicknames))
+  } catch (e) {
+    localStorage.removeItem(FRIEND_NICKNAMES_KEY)
+  }
+}
+
+async function forgetConversationPeer(user, thread) {
+  const other = thread?.other_user
+  forgetFriendNickname(other?.username)
+  await clearAstrPeerState(user?.id || user?.username, other?.id || other?.username, thread?.id)
+}
 
 function normalizeUser(d) {
   return {
@@ -163,6 +183,11 @@ export const useStore = create((set, get) => ({
     })
     socket.on('thread_removed', (payload) => {
       const conversationId = payload.conversation_id
+      const currentState = get()
+      const removedThread = currentState.messagesHome.threads.find((item) => String(item.id) === String(conversationId))
+      if (removedThread) {
+        void forgetConversationPeer(currentState.user, removedThread).catch(() => {})
+      }
       set((state) => ({
         messagesHome: {
           ...state.messagesHome,
@@ -862,6 +887,11 @@ export const useStore = create((set, get) => ({
         if (action === 'delete') {
           await get().fetchMessagesHome()
         } else {
+          const currentState = get()
+          const removedThread = currentState.messagesHome.threads.find((item) => String(item.id) === String(conversationId))
+          if (removedThread) {
+            await forgetConversationPeer(currentState.user, removedThread)
+          }
           set((state) => ({
             messagesHome: {
               ...state.messagesHome,

@@ -72,6 +72,19 @@ export async function astrStoreSet(storeName, key, value) {
   })
 }
 
+export async function astrStoreDelete(storeName, key) {
+  if (!hasIndexedDb()) {
+    memoryStores.get(storeName)?.delete(key)
+    return
+  }
+  const db = await openDb()
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(storeName, 'readwrite').objectStore(storeName).delete(key)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
 export function astrStateKey(user, conversation, deviceId = currentAstrDeviceId()) {
   return `astr_state:${user.id || user.username}:${deviceId}:${conversation.id}`
 }
@@ -244,6 +257,14 @@ export async function getAstrConversationState(conversation, user) {
 export async function saveAstrConversationState(conversation, user, state) {
   await astrStoreSet('astrConversationState', astrStateKey(user, conversation), state)
   return state
+}
+
+export async function clearAstrPeerState(localUserId, remoteUserId, conversationId = null) {
+  if (!localUserId || !remoteUserId) return
+  await astrStoreDelete('astrIdentityPins', identityPinKey(localUserId, remoteUserId, 'user'))
+  if (conversationId) {
+    await astrStoreDelete('astrConversationState', astrStateKey({ id: localUserId }, { id: conversationId }))
+  }
 }
 
 export async function reconcileAstrConversationState(conversation, user, verification) {

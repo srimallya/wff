@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { ASTR_VERIFY_CODES, ZERO_TRANSCRIPT_HASH, transcriptHash, verifyAstrTranscript } from '../astrTranscript'
 import {
   __resetAstrStateStoreForTests,
+  clearAstrPeerState,
   computeSafetyNumber,
   detectIdentityChange,
   getIdentityPin,
@@ -130,6 +131,17 @@ describe('ASTR identity pins', () => {
     expect(stored.verified).toBe(true)
   })
 
+  it('clears peer identity pin when a connection is removed', async () => {
+    await detectIdentityChange({ localUserId: 1, remoteUserId: 2, identityPublicKey: keyA, signedPrekeyPublicKey: keyA })
+
+    await clearAstrPeerState(1, 2)
+
+    await expect(getIdentityPin(1, 2)).resolves.toBeNull()
+    const result = await detectIdentityChange({ localUserId: 1, remoteUserId: 2, identityPublicKey: keyB, signedPrekeyPublicKey: keyB })
+    expect(result.first_seen).toBe(true)
+    expect(result.changed).toBe(false)
+  })
+
   it('safety number is deterministic', async () => {
     const first = await computeSafetyNumber(keyA, keyB)
     const reversed = await computeSafetyNumber(keyB, keyA)
@@ -254,6 +266,15 @@ describe('ASTR local state store', () => {
       verified_transcript_hash: ZERO_TRANSCRIPT_HASH,
       last_verified_message_id: null,
     })
+  })
+
+  it('clears the local transcript state for a removed connection', async () => {
+    const first = verifiedMessage(10, 'hash-1')
+    await reconcileAstrConversationState(conversation, user, verification([first]))
+
+    await clearAstrPeerState(user.id, 2, conversation.id)
+
+    await expect(getAstrConversationState(conversation, user)).resolves.toBeNull()
   })
 })
 
