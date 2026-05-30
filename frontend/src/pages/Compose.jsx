@@ -47,7 +47,7 @@ export default function Compose() {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell compose-page">
       <header className="app-header">
         <div className="app-header-inner">
           <p className="app-kicker">World Foresight Forum</p>

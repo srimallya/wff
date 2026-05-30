@@ -354,6 +354,12 @@ select:focus,
   select {
     font-size: 16px !important;
   }
+
+  .compose-page input:not([type="range"]),
+  .compose-page textarea,
+  .compose-page select {
+    font-size: 14px !important;
+  }
 }
 
 input::placeholder,
