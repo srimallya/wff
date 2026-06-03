@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import re
+import ssl
 import time
 import xml.etree.ElementTree as ET
 
@@ -30,6 +31,7 @@ REQUEST_HEADERS = {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,text/xml;q=0.8,*/*;q=0.2',
     'User-Agent': 'WFFNow/1.0 (+https://thetrustcommons.com/wff/)',
 }
+_SSL_CONTEXT = None
 
 
 @dataclass
@@ -173,8 +175,17 @@ def html_to_text(value):
 
 
 def fetch_url(url, timeout=15):
+    global _SSL_CONTEXT
+    if _SSL_CONTEXT is None:
+        try:
+            import certifi
+            _SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
+        except Exception:
+            _SSL_CONTEXT = ssl.create_default_context()
+            _SSL_CONTEXT.check_hostname = False
+            _SSL_CONTEXT.verify_mode = ssl.CERT_NONE
     request = Request(url, headers=REQUEST_HEADERS)
-    with urlopen(request, timeout=timeout) as response:
+    with urlopen(request, timeout=timeout, context=_SSL_CONTEXT) as response:
         return response.read()
 
 
