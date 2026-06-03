@@ -45,7 +45,7 @@ def start_now_refresh_scheduler(app):
 
     interval_seconds = _parse_int(os.environ.get('WFF_NOW_REFRESH_INTERVAL_SECONDS'), 900, 300, 86400)
     initial_delay_seconds = _parse_int(os.environ.get('WFF_NOW_REFRESH_INITIAL_DELAY_SECONDS'), 60, 0, 3600)
-    limit_per_source = _parse_int(os.environ.get('WFF_NOW_REFRESH_LIMIT_PER_SOURCE'), 4, 1, 20)
+    limit_per_source = _parse_int(os.environ.get('WFF_NOW_REFRESH_LIMIT_PER_SOURCE'), 1, 1, 20)
 
     def run():
         logger = getattr(app, 'logger', logging.getLogger(__name__))
