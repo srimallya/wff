@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.4.0
+
+### Now
+
+- Added the server-backed Now page for RSS-derived current stories.
+- Added WFF-owned RSS source seeding for BBC World, The Verge, NYT Technology, HT India, and Al Jazeera.
+- Added a standalone Now ingestion pipeline that fetches RSS records, retrieves article text, summarizes and cleans stories with Cerebras `gpt-oss-120b`, infers story region in the same model call, stores original content, caches semantic embeddings, and deduplicates by canonical URL.
+- Added `GET /api/now`, `POST /api/now/search`, `POST /api/now/refresh`, and story vote endpoints.
+- Added Now search facets in semantic > region > time-slider order, including a rolling story histogram.
+- Added upvotes/downvotes and Socket.IO events for new Now stories and story vote updates.
+- Added web-push notification delivery for newly ingested Now stories using the existing private-message notification infrastructure.
+- Added a gitignored WFF Cerebras secret path and runtime `.env` loader.
+
 ## v1.3.1
 
 ### Notifications

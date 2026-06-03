@@ -4,7 +4,7 @@ A global public foresight and policy forum for possible futures.
 
 People write time-capsule posts about the futures they think are coming, attach a target year and country, then read, search, vote, and discuss the public forecasts other people are willing to name.
 
-Current product version: `v1.3`
+Current product version: `v1.4`
 
 Production path: `https://thetrustcommons.com/wff/`
 
@@ -15,6 +15,7 @@ Production path: `https://thetrustcommons.com/wff/`
 - Generated public names with private login names.
 - Guest reader mode.
 - Semantic search, voting, and year filtering.
+- Now page for server-processed RSS stories with summaries, region facets, search, and votes.
 - Dedicated post pages with Reddit-style comment threads.
 - Upvotes and downvotes for both posts and comments.
 - Message requests, accepted private conversations, registered-user chatroom, and PWA notifications.

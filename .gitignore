@@ -5,6 +5,7 @@ __pycache__/
 node_modules/
 dist/
 .env
+backend/instance/security/
 .vscode/
 .DS_Store
 /goal.md

@@ -88,6 +88,13 @@ export const useStore = create((set, get) => ({
   searchYearCounts: [],
   isSearching: false,
   searchError: null,
+  nowStories: [],
+  nowTotal: 0,
+  nowFacets: { regions: [], histogram: [] },
+  nowAppliedFilters: { query: '', region_code: null, hours_back: 168 },
+  nowFilter: { query: '', regionCode: '', hoursBack: 168 },
+  nowLoading: false,
+  nowError: null,
   messageSearchResults: [],
   messagesHome: { pendingOutgoing: [], pendingIncoming: [], threads: [] },
   chatroomMessages: [],
@@ -286,6 +293,22 @@ export const useStore = create((set, get) => ({
         searchResults: state.searchResults.filter((item) => item.id !== essayId),
         essaysTotal: Math.max(0, state.essaysTotal - 1),
         lastRealtimeEvent: { type: 'essay_deleted', payload, receivedAt: Date.now() },
+      }))
+    })
+    socket.on('now_story_created', (payload) => {
+      const story = payload.story
+      if (!story) return
+      set((state) => ({
+        nowStories: uniqueById([story, ...state.nowStories]),
+        nowTotal: state.nowTotal + (state.nowStories.some((item) => item.id === story.id) ? 0 : 1),
+        lastRealtimeEvent: { type: 'now_story_created', payload, receivedAt: Date.now() },
+      }))
+    })
+    socket.on('now_story_voted', (payload) => {
+      if (!payload?.story_id) return
+      set((state) => ({
+        nowStories: state.nowStories.map((story) => story.id === payload.story_id ? { ...story, ...payload } : story),
+        lastRealtimeEvent: { type: 'now_story_voted', payload, receivedAt: Date.now() },
       }))
     })
   },
@@ -664,6 +687,75 @@ export const useStore = create((set, get) => ({
     isSearching: false,
     searchError: null,
   }),
+
+  fetchNowStories: async () => {
+    const { nowFilter, user } = get()
+    const params = new URLSearchParams()
+    if (nowFilter.query) params.set('q', nowFilter.query)
+    if (nowFilter.regionCode) params.set('region_code', nowFilter.regionCode)
+    if (nowFilter.hoursBack) params.set('hours_back', String(nowFilter.hoursBack))
+    if (user.id) params.set('current_user_id', String(user.id))
+    params.set('limit', '40')
+    set({ nowLoading: true, nowError: null })
+    try {
+      const res = await apiFetch(`${API_BASE}/now?${params.toString()}`)
+      const d = await res.json()
+      if (res.ok) {
+        set({
+          nowStories: d.stories || [],
+          nowTotal: d.total || 0,
+          nowFacets: d.facets || { regions: [], histogram: [] },
+          nowAppliedFilters: d.applied_filters || {
+            query: nowFilter.query,
+            region_code: nowFilter.regionCode || null,
+            hours_back: nowFilter.hoursBack,
+          },
+          nowLoading: false,
+        })
+      } else {
+        set({ nowStories: [], nowLoading: false, nowError: d.error || 'Now could not be loaded' })
+      }
+    } catch (e) {
+      set({ nowStories: [], nowLoading: false, nowError: 'Network error' })
+    }
+  },
+
+  setNowSearch: (query) => {
+    set((state) => ({ nowFilter: { ...state.nowFilter, query: (query || '').trim() } }))
+    return get().fetchNowStories()
+  },
+  setNowRegion: (regionCode) => {
+    set((state) => ({ nowFilter: { ...state.nowFilter, regionCode } }))
+    return get().fetchNowStories()
+  },
+  setNowHoursBack: (hoursBack) => {
+    set((state) => ({ nowFilter: { ...state.nowFilter, hoursBack } }))
+    return get().fetchNowStories()
+  },
+  clearNowSearch: () => {
+    set((state) => ({ nowFilter: { ...state.nowFilter, query: '', regionCode: '', hoursBack: 168 } }))
+    return get().fetchNowStories()
+  },
+  voteNowStory: async (storyId, value) => {
+    const { user } = get()
+    if (!user.username) return null
+    try {
+      const res = await apiFetch(`${API_BASE}/now/${storyId}/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user.username, value }),
+      })
+      const d = await res.json()
+      if (res.ok) {
+        set((state) => ({
+          nowStories: state.nowStories.map((story) => story.id === storyId ? { ...story, ...d } : story),
+        }))
+      }
+      return d
+    } catch (e) {
+      return null
+    }
+  },
 
   searchMessageUsers: async (query) => {
     const { user } = get()

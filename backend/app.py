@@ -8,14 +8,19 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+from backend.services.env import load_runtime_env
+load_runtime_env(PROJECT_ROOT)
+
 from backend.models import db
 from backend.routes.auth import auth_bp
 from backend.routes.essays import essays_bp
 from backend.routes.messages import cleanup_expired_media, messages_bp
+from backend.routes.now import now_bp
 from backend.routes.notifications import notifications_bp
 from backend.routes.proposals import proposals_bp
 from backend.routes.recommendations import recommendations_bp
 from backend.services.account_cleanup import cleanup_inactive_accounts
+from backend.services.now_pipeline import ensure_default_sources
 from backend.services.realtime import socketio
 from backend.services.schema import ensure_schema
 
@@ -62,6 +67,7 @@ def create_app():
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(essays_bp, url_prefix='/api/essays')
     app.register_blueprint(messages_bp, url_prefix='/api/messages')
+    app.register_blueprint(now_bp, url_prefix='/api/now')
     app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
     app.register_blueprint(proposals_bp, url_prefix='/api/proposals')
     app.register_blueprint(recommendations_bp, url_prefix='/api/recommendations')
@@ -69,6 +75,7 @@ def create_app():
     with app.app_context():
         db.create_all()
         ensure_schema()
+        ensure_default_sources()
         cleanup_expired_media()
         cleanup_inactive_accounts()
 
@@ -99,6 +106,8 @@ def create_app():
             'GET /api/essays',
             'POST /api/essays',
             'POST /api/essays/search',
+            'GET /api/now',
+            'POST /api/now/refresh',
             'GET /api/proposals',
             'GET /api/recommendations/feed',
         ]})

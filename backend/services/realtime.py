@@ -55,18 +55,26 @@ def handle_join_chatroom(data):
 
 
 def emit_to_user(user_id, event, payload):
+    if not getattr(socketio, 'server', None):
+        return
     socketio.emit(event, payload, room=user_room(user_id))
 
 
 def emit_to_conversation(conversation_id, event, payload):
+    if not getattr(socketio, 'server', None):
+        return
     socketio.emit(event, payload, room=conversation_room(conversation_id))
 
 
 def emit_to_chatroom(event, payload):
+    if not getattr(socketio, 'server', None):
+        return
     socketio.emit(event, payload, room=chatroom_room())
 
 
 def emit_global(event, payload):
+    if not getattr(socketio, 'server', None):
+        return
     socketio.emit(event, payload)
 
 

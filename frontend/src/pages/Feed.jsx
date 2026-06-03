@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/zustandStore'
 import FeedFilters from '../components/FeedFilters'
 import EssayCard from '../components/EssayCard'
-import { IconButton } from '../components/Icons'
+import { Icon, IconButton } from '../components/Icons'
 import BottomNav from '../components/BottomNav'
 
 export default function Feed() {
@@ -49,15 +49,26 @@ export default function Feed() {
           <p className="app-kicker">World Foresight Forum</p>
           <div className="mt-2 flex items-end justify-between gap-4">
             <h1 className="app-title">Forum</h1>
-            <button
-              type="button"
-              onClick={() => setFiltersOpen((open) => !open)}
-              className="swiss-action text-sm"
-              aria-expanded={filtersOpen}
-              aria-controls="feed-discovery-controls"
-            >
-              Search
-            </button>
+            <div className="flex items-center gap-5">
+              <button
+                type="button"
+                onClick={() => setFiltersOpen((open) => !open)}
+                className="text-primary"
+                aria-label="Search"
+                title="Search"
+                aria-expanded={filtersOpen}
+                aria-controls="feed-discovery-controls"
+              >
+                <Icon name="search" className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/now')}
+                className="swiss-action text-sm"
+              >
+                Now
+              </button>
+            </div>
           </div>
         </div>
       </header>

@@ -162,6 +162,73 @@ class Vote(db.Model):
 
     __table_args__ = (db.UniqueConstraint('user_id', 'essay_id', name='unique_user_essay_vote'),)
 
+class NowSource(db.Model):
+    __bind_key__ = WFF_BIND_KEY
+    __tablename__ = 'wff_now_source'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    url = db.Column(db.Text, nullable=False, unique=True)
+    is_enabled = db.Column(db.Boolean, nullable=False, default=True)
+    sort_index = db.Column(db.Integer, nullable=False, default=0)
+    last_fetched_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class NowStory(db.Model):
+    __bind_key__ = WFF_BIND_KEY
+    __tablename__ = 'wff_now_story'
+
+    id = db.Column(db.Integer, primary_key=True)
+    source_id = db.Column(db.Integer, db.ForeignKey('wff_now_source.id'), nullable=False)
+    source_name = db.Column(db.String(120), nullable=False)
+    source_url = db.Column(db.Text, nullable=False)
+    title = db.Column(db.String(500), nullable=False)
+    url = db.Column(db.Text, nullable=False, unique=True)
+    canonical_url = db.Column(db.Text, nullable=True)
+    summary = db.Column(db.Text, nullable=False)
+    excerpt = db.Column(db.Text, nullable=True)
+    original_content = db.Column(db.Text, nullable=True)
+    region = db.Column(db.String(120), nullable=False, default='Global')
+    region_code = db.Column(db.String(32), nullable=False, default='GLOBAL')
+    embedding_json = db.Column(db.Text, nullable=True)
+    content_hash = db.Column(db.String(64), nullable=True)
+    summary_status = db.Column(db.String(32), nullable=False, default='fallback')
+    summary_model = db.Column(db.String(120), nullable=True)
+    failure_reason = db.Column(db.Text, nullable=True)
+    published_at = db.Column(db.DateTime, nullable=True)
+    fetched_at = db.Column(db.DateTime, default=datetime.utcnow)
+    processed_at = db.Column(db.DateTime, nullable=True)
+
+    source = db.relationship('backend.models.NowSource', foreign_keys=[source_id])
+    votes = db.relationship('backend.models.NowStoryVote', backref='story', lazy=True, cascade='all, delete-orphan')
+
+    @property
+    def upvotes(self):
+        return sum(1 for v in self.votes if v.value == 1)
+
+    @property
+    def downvotes(self):
+        return sum(1 for v in self.votes if v.value == -1)
+
+    @property
+    def score(self):
+        return sum(v.value for v in self.votes)
+
+class NowStoryVote(db.Model):
+    __bind_key__ = WFF_BIND_KEY
+    __tablename__ = 'wff_now_story_vote'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('wff_user.id'), nullable=False)
+    story_id = db.Column(db.Integer, db.ForeignKey('wff_now_story.id'), nullable=False)
+    value = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('backend.models.User', foreign_keys=[user_id])
+
+    __table_args__ = (db.UniqueConstraint('user_id', 'story_id', name='unique_user_now_story_vote'),)
+
 class Comment(db.Model):
     __bind_key__ = WFF_BIND_KEY
     __tablename__ = 'wff_comment'
