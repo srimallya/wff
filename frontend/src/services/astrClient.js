@@ -561,10 +561,10 @@ export async function decryptAstrMessage(conversation, user, message) {
   }
 }
 
-export async function decryptConversation(conversation, user) {
+export async function decryptConversation(conversation, user, options = {}) {
   if (!conversation?.messages) return conversation
   await ensureKeyBundleRegistered(user)
-  const existingState = conversation.locally_cleared_at && !conversation.messages_purged_at
+  const existingState = conversation.locally_cleared_at && !conversation.messages_purged_at && !conversation.initial_transcript_state
     ? await getAstrConversationState(conversation, user)
     : null
   const verificationConversation = existingState
@@ -572,7 +572,9 @@ export async function decryptConversation(conversation, user) {
     : conversation
   const verification = await verifyAstrTranscript(verificationConversation, user, decryptAstrMessage)
   const identityState = await reconcileConversationIdentity(conversation, user, verification)
-  const localState = await reconcileAstrConversationState(conversation, user, verification)
+  const localState = options.reconcileState === false
+    ? { state: await getAstrConversationState(conversation, user), secure_state_mismatch: false }
+    : await reconcileAstrConversationState(conversation, user, verification)
   if (localState.secure_state_mismatch) {
     return {
       ...conversation,

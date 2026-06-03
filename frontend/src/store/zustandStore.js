@@ -868,13 +868,42 @@ export const useStore = create((set, get) => ({
     }
   },
 
-  fetchConversation: async (conversationId) => {
+  fetchConversation: async (conversationId, options = {}) => {
     const { user } = get()
     try {
-      const res = await apiFetch(`${API_BASE}/messages/threads/${conversationId}`)
+      const params = new URLSearchParams()
+      if (options.limit) params.set('limit', String(options.limit))
+      const query = params.toString()
+      const res = await apiFetch(`${API_BASE}/messages/threads/${conversationId}${query ? `?${query}` : ''}`)
       const d = await res.json()
       if (res.ok) return { success: true, conversation: await decryptConversation(d.conversation, user) }
       return { success: false, error: d.error || 'Conversation not found' }
+    } catch (e) {
+      return { success: false, error: 'Network error' }
+    }
+  },
+
+  fetchConversationMessages: async (conversation, options = {}) => {
+    const { user } = get()
+    try {
+      const params = new URLSearchParams()
+      if (options.limit) params.set('limit', String(options.limit))
+      if (options.beforeId) params.set('before_id', String(options.beforeId))
+      if (options.afterId) params.set('after_id', String(options.afterId))
+      const res = await apiFetch(`${API_BASE}/messages/threads/${conversation.id}/messages?${params.toString()}`)
+      const d = await res.json()
+      if (!res.ok) return { success: false, error: d.error || 'Messages could not be loaded' }
+      const pageConversation = {
+        ...conversation,
+        messages: d.messages || [],
+        initial_transcript_state: d.initial_transcript_state,
+      }
+      const decrypted = await decryptConversation(pageConversation, user, { reconcileState: options.reconcileState !== false })
+      return {
+        success: true,
+        messages: decrypted.messages || [],
+        pagination: d.messages_pagination || {},
+      }
     } catch (e) {
       return { success: false, error: 'Network error' }
     }

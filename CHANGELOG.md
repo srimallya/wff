@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.4.2
+
+### Messaging
+
+- Added paged private-message loading so long threads open on the latest messages and fetch older messages on scroll.
+- Added a message-page API with transcript state for encrypted ASTR page verification.
+- Stopped realtime private-message updates from refetching the entire thread.
+- Preserved scroll position when older messages are loaded above the current view.
+
 ## v1.4.1
 
 ### Now

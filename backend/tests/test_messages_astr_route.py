@@ -336,6 +336,60 @@ class PrivateMessageAstrRouteTest(unittest.TestCase):
             self.assertEqual(request.status, 'active')
             self.assertIsNotNone(request.conversation_id)
 
+    def test_conversation_fetch_returns_latest_message_page(self):
+        csrf = self.login('alice')
+        with self.app.app_context():
+            db.session.add_all([
+                Message(conversation_id=self.conversation_id, sender_id=self.alice_id, body='message 1'),
+                Message(conversation_id=self.conversation_id, sender_id=self.bob_id, body='message 2'),
+                Message(conversation_id=self.conversation_id, sender_id=self.alice_id, body='message 3'),
+            ])
+            db.session.commit()
+
+        response = self.client.get(
+            f'/messages/threads/{self.conversation_id}?limit=2',
+            headers=self.auth_headers(csrf),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()['conversation']
+        self.assertEqual([message['body'] for message in payload['messages']], ['message 2', 'message 3'])
+        self.assertTrue(payload['messages_pagination']['has_older'])
+        self.assertFalse(payload['messages_pagination']['has_newer'])
+        self.assertEqual(payload['initial_transcript_state']['verified_transcript_hash'], ZERO_TRANSCRIPT_HASH)
+
+    def test_conversation_message_pages_return_older_and_newer_slices(self):
+        csrf = self.login('alice')
+        with self.app.app_context():
+            messages = [
+                Message(conversation_id=self.conversation_id, sender_id=self.alice_id, body='message 1'),
+                Message(conversation_id=self.conversation_id, sender_id=self.bob_id, body='message 2'),
+                Message(conversation_id=self.conversation_id, sender_id=self.alice_id, body='message 3'),
+                Message(conversation_id=self.conversation_id, sender_id=self.bob_id, body='message 4'),
+            ]
+            db.session.add_all(messages)
+            db.session.commit()
+            second_id = messages[1].id
+            third_id = messages[2].id
+
+        older = self.client.get(
+            f'/messages/threads/{self.conversation_id}/messages?before_id={third_id}&limit=2',
+            headers=self.auth_headers(csrf),
+        )
+        newer = self.client.get(
+            f'/messages/threads/{self.conversation_id}/messages?after_id={second_id}&limit=2',
+            headers=self.auth_headers(csrf),
+        )
+
+        self.assertEqual(older.status_code, 200)
+        self.assertEqual([message['body'] for message in older.get_json()['messages']], ['message 1', 'message 2'])
+        self.assertFalse(older.get_json()['messages_pagination']['has_older'])
+        self.assertTrue(older.get_json()['messages_pagination']['has_newer'])
+        self.assertEqual(newer.status_code, 200)
+        self.assertEqual([message['body'] for message in newer.get_json()['messages']], ['message 3', 'message 4'])
+        self.assertTrue(newer.get_json()['messages_pagination']['has_older'])
+        self.assertFalse(newer.get_json()['messages_pagination']['has_newer'])
+
     def test_send_reconciles_stale_channel_state_from_empty_message_log(self):
         csrf = self.login('alice')
         with self.app.app_context():

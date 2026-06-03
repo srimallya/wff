@@ -10,7 +10,7 @@ from werkzeug.utils import secure_filename
 from backend.models import ChatroomMessage, Conversation, ConversationRead, Message, MessageRequest, User, UserDeviceKey, db
 from backend.routes.auth import require_current_user
 from backend.services.account_cleanup import can_use_private_features
-from backend.services.astr import ASTR_CLIENT_STATE_VERSION, apply_client_packet_transition, create_channel_state, dump_channel_state, load_channel_state, reconcile_channel_state
+from backend.services.astr import ASTR_CLIENT_STATE_VERSION, ZERO_TRANSCRIPT_HASH, apply_client_packet_transition, create_channel_state, dump_channel_state, load_channel_state, reconcile_channel_state
 from backend.services.notifications import send_message_notification, send_message_request_notification
 from backend.services.realtime import emit_to_chatroom, emit_to_user
 
@@ -22,6 +22,8 @@ MEDIA_RETENTION_HOURS = 24
 MEDIA_OPEN_LIMIT = 3
 MAX_MEDIA_BYTES = 16 * 1024 * 1024
 ACTIVE_USER_WINDOW = timedelta(minutes=5)
+DEFAULT_THREAD_MESSAGE_LIMIT = 40
+MAX_THREAD_MESSAGE_LIMIT = 100
 
 
 def media_root():
@@ -195,6 +197,114 @@ def visible_messages_for(conversation, user_id):
     )
 
 
+def message_page_limit():
+    limit = request.args.get('limit', request.args.get('messages_limit', DEFAULT_THREAD_MESSAGE_LIMIT), type=int)
+    if not limit:
+        return DEFAULT_THREAD_MESSAGE_LIMIT
+    return max(1, min(limit, MAX_THREAD_MESSAGE_LIMIT))
+
+
+def astr_state_from_messages(messages):
+    counters = {'one_to_two': 0, 'two_to_one': 0}
+    transcript_hash_value = ZERO_TRANSCRIPT_HASH
+    for message in messages:
+        if not message.astr_version:
+            continue
+        direction = message.astr_direction
+        if direction in counters:
+            counters[direction] = max(counters[direction], (message.astr_counter or 0) + 1)
+        if message.transcript_hash:
+            transcript_hash_value = message.transcript_hash
+    return {
+        'verified_transcript_hash': transcript_hash_value,
+        'verified_counters': counters,
+        'structural_transcript_hash': transcript_hash_value,
+        'structural_counters': counters,
+        'transcript_verified': True,
+        'transcript_error': None,
+    }
+
+
+def initial_transcript_state_for_page(conversation, user_id, first_message):
+    if not first_message:
+        return astr_state_from_messages([])
+    previous_messages = (
+        visible_message_query(conversation.id, user_id)
+        .filter(Message.id < first_message.id)
+        .order_by(Message.id.asc())
+        .all()
+    )
+    return astr_state_from_messages(previous_messages)
+
+
+def paginated_messages_for(conversation, user_id, limit=None, before_id=None, after_id=None):
+    limit = limit or DEFAULT_THREAD_MESSAGE_LIMIT
+    query = visible_message_query(conversation.id, user_id)
+    mode = 'latest'
+    if after_id:
+        mode = 'newer'
+        rows = (
+            query
+            .filter(Message.id > after_id)
+            .order_by(Message.id.asc())
+            .limit(limit + 1)
+            .all()
+        )
+        messages = rows[:limit]
+    elif before_id:
+        mode = 'older'
+        rows = (
+            query
+            .filter(Message.id < before_id)
+            .order_by(Message.id.desc())
+            .limit(limit + 1)
+            .all()
+        )
+        messages = list(reversed(rows[:limit]))
+    else:
+        rows = (
+            query
+            .order_by(Message.id.desc())
+            .limit(limit + 1)
+            .all()
+        )
+        messages = list(reversed(rows[:limit]))
+
+    oldest_id = messages[0].id if messages else None
+    newest_id = messages[-1].id if messages else None
+    has_older = False
+    has_newer = False
+    if messages:
+        has_older = (
+            visible_message_query(conversation.id, user_id)
+            .filter(Message.id < oldest_id)
+            .first()
+            is not None
+        )
+        has_newer = (
+            visible_message_query(conversation.id, user_id)
+            .filter(Message.id > newest_id)
+            .first()
+            is not None
+        )
+    elif mode == 'newer':
+        has_older = visible_message_query(conversation.id, user_id).first() is not None
+    elif mode == 'older':
+        has_newer = visible_message_query(conversation.id, user_id).first() is not None
+
+    return {
+        'messages': messages,
+        'pagination': {
+            'limit': limit,
+            'has_older': has_older,
+            'has_newer': has_newer,
+            'oldest_id': oldest_id,
+            'newest_id': newest_id,
+        },
+        'initial_transcript_state': initial_transcript_state_for_page(conversation, user_id, messages[0] if messages else None),
+    }
+
+
 def delete_messages_for_conversation(conversation):
     for message in list(conversation.messages):
         delete_media_file(message)
@@ -317,7 +427,7 @@ def request_to_dict(message_request, current_user_id):
     }
 
 
-def conversation_to_dict(conversation, current_user_id, include_messages=False):
+def conversation_to_dict(conversation, current_user_id, include_messages=False, message_page=None):
     cleanup_expired_media()
     channel_state = reconcile_channel_state(conversation)
     other = other_user_for_conversation(conversation, current_user_id)
@@ -362,10 +472,13 @@ def conversation_to_dict(conversation, current_user_id, include_messages=False):
         'updated_at': conversation.updated_at.isoformat(),
     }
     if include_messages:
+        page = message_page or paginated_messages_for(conversation, current_user_id, message_page_limit())
         data['messages'] = [
             message_to_dict(message, current_user_id)
-            for message in visible_messages_for(conversation, current_user_id)
+            for message in page['messages']
         ]
+        data['messages_pagination'] = page['pagination']
+        data['initial_transcript_state'] = page['initial_transcript_state']
     return data
 
 
@@ -747,6 +860,32 @@ def get_conversation(conversation_id):
     db.session.commit()
     response['unread_count'] = 0
     return jsonify({'conversation': response})
+
+
+@messages_bp.route('/threads/<int:conversation_id>/messages', methods=['GET'])
+def get_conversation_messages(conversation_id):
+    current_user = require_current_user()
+    if not current_user:
+        return jsonify({'error': 'Valid user required'}), 400
+    if not can_use_private_features(current_user):
+        return private_features_error()
+
+    conversation = Conversation.query.get_or_404(conversation_id)
+    if current_user.id not in [conversation.user_one_id, conversation.user_two_id]:
+        return jsonify({'error': 'Conversation not found'}), 404
+
+    page = paginated_messages_for(
+        conversation,
+        current_user.id,
+        message_page_limit(),
+        before_id=request.args.get('before_id', type=int),
+        after_id=request.args.get('after_id', type=int),
+    )
+    return jsonify({
+        'messages': [message_to_dict(message, current_user.id) for message in page['messages']],
+        'messages_pagination': page['pagination'],
+        'initial_transcript_state': page['initial_transcript_state'],
+    })
 
 
 @messages_bp.route('/threads/<int:conversation_id>/messages', methods=['POST'])

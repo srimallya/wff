@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../store/zustandStore'
 import { IconButton } from '../components/Icons'
@@ -54,6 +54,7 @@ function dateBucket(value) {
 }
 
 const NICKNAME_KEY = 'wff_friend_nicknames'
+const MESSAGE_PAGE_LIMIT = 40
 
 function loadNicknames() {
   try {
@@ -113,10 +114,12 @@ function uniqueMessages(items) {
 export default function Conversation() {
   const { conversationId } = useParams()
   const navigate = useNavigate()
-  const { user, fetchConversation, sendConversationMessage, uploadConversationMedia, closeConversation, lastRealtimeEvent, joinConversation } = useStore()
+  const { user, fetchConversation, fetchConversationMessages, sendConversationMessage, uploadConversationMedia, closeConversation, lastRealtimeEvent, joinConversation } = useStore()
   const [conversation, setConversation] = useState(null)
+  const [messagePagination, setMessagePagination] = useState(null)
   const [body, setBody] = useState('')
   const [loading, setLoading] = useState(true)
+  const [loadingOlder, setLoadingOlder] = useState(false)
   const [error, setError] = useState('')
   const [sending, setSending] = useState(false)
   const [mediaSending, setMediaSending] = useState(false)
@@ -134,6 +137,9 @@ export default function Conversation() {
   const mediaInputRef = useRef(null)
   const recorderRef = useRef(null)
   const audioChunksRef = useRef([])
+  const didInitialScrollRef = useRef(false)
+  const keepAtBottomRef = useRef(false)
+  const processedRealtimeMessageRef = useRef('')
 
   const otherUsername = conversation?.other_user?.username || ''
   const otherDisplayName = useMemo(() => displayNameFor(otherUsername, nicknames), [otherUsername, nicknames])
@@ -148,9 +154,11 @@ export default function Conversation() {
       return
     }
     setLoading(true)
-    fetchConversation(conversationId).then((result) => {
+    didInitialScrollRef.current = false
+    fetchConversation(conversationId, { limit: MESSAGE_PAGE_LIMIT }).then((result) => {
       if (result.success) {
         setConversation(result.conversation)
+        setMessagePagination(result.conversation.messages_pagination || null)
         setError('')
       } else {
         setError(result.error)
@@ -163,17 +171,107 @@ export default function Conversation() {
     if (conversationId) joinConversation(conversationId)
   }, [conversationId, joinConversation])
 
+  const loadOlderMessages = useCallback(async () => {
+    if (!conversation || loadingOlder || !messagePagination?.has_older) return
+    const oldestId = messagePagination.oldest_id || conversation.messages?.[0]?.id
+    if (!oldestId) return
+    const scroller = scrollRef.current
+    const previousHeight = scroller?.scrollHeight || 0
+    const previousTop = scroller?.scrollTop || 0
+    setLoadingOlder(true)
+    const result = await fetchConversationMessages(conversation, {
+      beforeId: oldestId,
+      limit: MESSAGE_PAGE_LIMIT,
+      reconcileState: false,
+    })
+    setLoadingOlder(false)
+    if (!result.success) {
+      setError(result.error)
+      return
+    }
+    setConversation((current) => ({
+      ...current,
+      messages: uniqueMessages([...(result.messages || []), ...(current?.messages || [])]),
+    }))
+    setMessagePagination((current) => ({
+      ...(current || {}),
+      ...(result.pagination || {}),
+      newest_id: current?.newest_id || result.pagination?.newest_id,
+      has_newer: current?.has_newer || false,
+    }))
+    requestAnimationFrame(() => {
+      if (!scrollRef.current) return
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight - previousHeight + previousTop
+    })
+  }, [conversation, fetchConversationMessages, loadingOlder, messagePagination])
+
+  const loadNewerMessages = useCallback(async () => {
+    if (!conversation || !messagePagination?.has_newer) return
+    const newestId = messagePagination.newest_id || conversation.messages?.[conversation.messages.length - 1]?.id
+    if (!newestId) return
+    const result = await fetchConversationMessages(conversation, {
+      afterId: newestId,
+      limit: MESSAGE_PAGE_LIMIT,
+      reconcileState: true,
+    })
+    if (!result.success) {
+      setError(result.error)
+      return
+    }
+    setConversation((current) => ({
+      ...current,
+      messages: uniqueMessages([...(current?.messages || []), ...(result.messages || [])]),
+    }))
+    setMessagePagination((current) => ({
+      ...(current || {}),
+      ...(result.pagination || {}),
+      oldest_id: current?.oldest_id || result.pagination?.oldest_id,
+    }))
+  }, [conversation, fetchConversationMessages, messagePagination])
+
+  const handleScroll = useCallback(() => {
+    const scroller = scrollRef.current
+    if (!scroller) return
+    if (scroller.scrollTop < 96) loadOlderMessages()
+    if (scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 96) loadNewerMessages()
+  }, [loadNewerMessages, loadOlderMessages])
+
   useEffect(() => {
     if (!lastRealtimeEvent || lastRealtimeEvent.type !== 'message_created') return
     const payload = lastRealtimeEvent.payload
     if (String(payload.conversation_id) !== String(conversationId) || !payload.message) return
-    fetchConversation(conversationId).then((result) => {
-      if (result.success) {
-        setConversation(result.conversation)
+    const eventKey = String(payload.message.client_nonce || payload.message.id || lastRealtimeEvent.receivedAt)
+    if (processedRealtimeMessageRef.current === eventKey) return
+    processedRealtimeMessageRef.current = eventKey
+    const scroller = scrollRef.current
+    keepAtBottomRef.current = !scroller || scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 120
+    if (conversation) {
+      fetchConversationMessages(conversation, {
+        afterId: messagePagination?.newest_id || conversation.messages?.[conversation.messages.length - 1]?.id,
+        limit: MESSAGE_PAGE_LIMIT,
+        reconcileState: true,
+      }).then((result) => {
+        if (!result.success) {
+          setError(result.error)
+          return
+        }
+        setConversation((current) => ({
+          ...current,
+          messages: uniqueMessages([...(current?.messages || []), ...(result.messages || [])]),
+          last_message: payload.thread?.last_message || current?.last_message,
+          updated_at: payload.thread?.updated_at || current?.updated_at,
+        }))
+        setMessagePagination((current) => ({
+          ...(current || {}),
+          ...(result.pagination || {}),
+          oldest_id: current?.oldest_id || result.pagination?.oldest_id,
+        }))
         setError('')
-      }
-    })
-  }, [lastRealtimeEvent, conversationId, fetchConversation, user])
+      })
+    } else if (payload.thread) {
+      setConversation({ ...payload.thread, messages: [payload.message] })
+    }
+  }, [lastRealtimeEvent, conversationId, conversation, fetchConversationMessages, messagePagination])
 
   useEffect(() => {
     if (!lastRealtimeEvent || lastRealtimeEvent.type !== 'thread_removed') return
@@ -263,6 +361,7 @@ export default function Conversation() {
       ...current,
       messages: [...(current?.messages || []), optimisticMessage],
     }))
+    keepAtBottomRef.current = true
     setBody('')
     setReplyTo(null)
     setSending(true)
@@ -272,23 +371,19 @@ export default function Conversation() {
     })
     setSending(false)
     if (result.success) {
-      if (result.conversation) {
-        setConversation({
-          ...result.conversation,
-          messages: (result.conversation.messages || []).map((message) =>
-            message.client_nonce === clientNonce ? { ...message, sending_status: 'sent' } : message
-          ),
-        })
-      } else {
-        setConversation((current) => ({
-          ...current,
-          messages: (current?.messages || []).map((message) =>
-            message.client_nonce === clientNonce
-              ? { ...result.message, sending_status: 'sent' }
-              : message
-          ),
-        }))
-      }
+      setConversation((current) => ({
+        ...current,
+        messages: uniqueMessages((current?.messages || []).map((message) =>
+          message.client_nonce === clientNonce
+            ? { ...result.message, sending_status: 'sent' }
+            : message
+        )),
+      }))
+      setMessagePagination((current) => ({
+        ...(current || {}),
+        newest_id: result.message?.id || current?.newest_id,
+        has_newer: false,
+      }))
       setError('')
     } else {
       setConversation((current) => ({
@@ -311,9 +406,15 @@ export default function Conversation() {
     const result = await uploadConversationMedia(conversationId, file, clientNonce)
     setMediaSending(false)
     if (result.success) {
+      keepAtBottomRef.current = true
       setConversation((current) => ({
         ...current,
         messages: uniqueMessages([...(current?.messages || []), { ...result.message, sending_status: 'sent' }]),
+      }))
+      setMessagePagination((current) => ({
+        ...(current || {}),
+        newest_id: result.message?.id || current?.newest_id,
+        has_newer: false,
       }))
     } else {
       setError(result.error)
@@ -370,7 +471,16 @@ export default function Conversation() {
   }
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: 'end' })
+    if (!conversation?.id) return
+    if (!didInitialScrollRef.current) {
+      bottomRef.current?.scrollIntoView({ block: 'end' })
+      didInitialScrollRef.current = true
+      return
+    }
+    if (keepAtBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ block: 'end' })
+      keepAtBottomRef.current = false
+    }
   }, [conversation?.messages?.length, conversation?.id])
 
   useEffect(() => {
@@ -409,9 +519,13 @@ export default function Conversation() {
           <>
             <div
               ref={scrollRef}
+              onScroll={handleScroll}
               onPointerDown={() => setInputFocused(false)}
               className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4"
             >
+              {loadingOlder && (
+                <div className="flex justify-center text-xs text-gray-500">Loading earlier messages...</div>
+              )}
               {conversation.messages.length === 0 ? (
                 <div className="flex h-full items-center justify-center text-sm text-gray-500">
                   No messages yet
