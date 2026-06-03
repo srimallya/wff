@@ -21,6 +21,7 @@ from backend.routes.proposals import proposals_bp
 from backend.routes.recommendations import recommendations_bp
 from backend.services.account_cleanup import cleanup_inactive_accounts
 from backend.services.now_pipeline import ensure_default_sources
+from backend.services.now_scheduler import start_now_refresh_scheduler
 from backend.services.realtime import socketio
 from backend.services.schema import ensure_schema
 
@@ -78,6 +79,7 @@ def create_app():
         ensure_default_sources()
         cleanup_expired_media()
         cleanup_inactive_accounts()
+    start_now_refresh_scheduler(app)
 
     @app.route('/api/health')
     def health():

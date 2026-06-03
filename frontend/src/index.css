@@ -305,17 +305,6 @@ input[type="range"] {
   padding: 1.25rem 0;
 }
 
-.now-story-featured {
-  min-height: 17rem;
-  display: flex;
-  align-items: stretch;
-  padding: 1.6rem 0 1.8rem;
-}
-
-.now-story-featured > .flex {
-  width: 100%;
-}
-
 .now-story-title {
   color: var(--wff-text-strong);
   font-size: 1.03rem;
@@ -323,23 +312,10 @@ input[type="range"] {
   line-height: 1.28;
 }
 
-.now-story-title-featured {
-  color: var(--wff-text-strong);
-  font-size: 1.45rem;
-  font-weight: 600;
-  line-height: 1.24;
-}
-
 .now-story-summary {
   color: var(--wff-muted);
   font-size: 0.86rem;
   line-height: 1.55;
-}
-
-.now-story-summary-featured {
-  color: var(--wff-muted);
-  font-size: 1rem;
-  line-height: 1.58;
 }
 
 .bg-dark-bg,

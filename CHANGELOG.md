@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.4.1
+
+### Now
+
+- Added the production Now RSS refresh scheduler so new stories are fetched automatically.
+- Kept web-push notifications enabled for newly inserted Now stories during scheduled refreshes.
+- Normalized Now story card typography so the first story no longer renders larger than later stories.
+
 ## v1.4.0
 
 ### Now

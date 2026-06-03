@@ -63,7 +63,7 @@ function NowHistogram({ buckets, value, onChange }) {
   )
 }
 
-function NowStoryCard({ story, featured = false }) {
+function NowStoryCard({ story }) {
   const { user, voteNowStory } = useStore()
   const [userVote, setUserVote] = useState(story.user_vote || null)
   const [votes, setVotes] = useState({
@@ -96,7 +96,7 @@ function NowStoryCard({ story, featured = false }) {
   }
 
   return (
-    <article className={`now-story ${featured ? 'now-story-featured' : ''}`}>
+    <article className="now-story">
       <div className="flex gap-4">
         <div className="flex flex-col items-center gap-1 pt-1">
           <button
@@ -131,9 +131,9 @@ function NowStoryCard({ story, featured = false }) {
             </div>
             <span className="shrink-0">{relativeTime(story.published_at || story.fetched_at)}</span>
           </div>
-          <div className={featured ? 'space-y-3' : 'space-y-2'}>
-            <h2 className={featured ? 'now-story-title-featured' : 'now-story-title'}>{story.title}</h2>
-            <p className={featured ? 'now-story-summary-featured' : 'now-story-summary'}>{story.summary}</p>
+          <div className="space-y-2">
+            <h2 className="now-story-title">{story.title}</h2>
+            <p className="now-story-summary">{story.summary}</p>
           </div>
           <div className="flex items-center justify-between gap-4 pt-1 text-xs text-gray-600">
             <button type="button" onClick={openStory} className="swiss-action">
@@ -297,7 +297,7 @@ export default function Now() {
             <div className="py-16 text-center text-sm text-gray-500">No current stories yet</div>
           ) : (
             <div>
-              <NowStoryCard story={featured} featured />
+              <NowStoryCard story={featured} />
               <div className="space-y-0">
                 {rest.map((story) => <NowStoryCard key={story.id} story={story} />)}
               </div>
