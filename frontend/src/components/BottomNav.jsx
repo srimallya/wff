@@ -13,7 +13,6 @@ export default function BottomNav() {
 
   const items = [
     { label: 'Forum', path: '/feed', action: goFeed },
-    { label: 'Now', path: '/now', action: () => navigate('/now') },
     { label: 'Write', path: '/compose', hidden: !user.canPost, action: () => navigate('/compose') },
     { label: 'Profile', path: '/profile', action: () => navigate('/profile') },
   ].filter((item) => !item.hidden)

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore } from '../store/zustandStore'
 import { Icon } from '../components/Icons'
 import BottomNav from '../components/BottomNav'
@@ -148,6 +148,7 @@ function NowStoryCard({ story, featured = false }) {
 }
 
 export default function Now() {
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const {
     fetchNowStories, nowStories, nowTotal, nowFacets, nowFilter,
@@ -174,6 +175,14 @@ export default function Now() {
     clearNowSearch()
   }
 
+  const handleClose = () => {
+    if (window.history.length > 1) {
+      navigate(-1)
+      return
+    }
+    navigate('/feed')
+  }
+
   const featured = nowStories[0]
   const rest = nowStories.slice(1)
 
@@ -184,17 +193,28 @@ export default function Now() {
           <p className="app-kicker">World Foresight Forum</p>
           <div className="mt-2 flex items-end justify-between gap-4">
             <h1 className="app-title">Now</h1>
-            <button
-              type="button"
-              onClick={() => setFiltersOpen((open) => !open)}
-              className="text-primary"
-              aria-label="Search Now"
-              title="Search Now"
-              aria-expanded={filtersOpen}
-              aria-controls="now-discovery-controls"
-            >
-              <Icon name="search" className="h-5 w-5" />
-            </button>
+            <div className="flex items-center gap-5">
+              <button
+                type="button"
+                onClick={() => setFiltersOpen((open) => !open)}
+                className="text-primary"
+                aria-label="Search Now"
+                title="Search Now"
+                aria-expanded={filtersOpen}
+                aria-controls="now-discovery-controls"
+              >
+                <Icon name="search" className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="text-gray-400 hover:text-primary transition-colors"
+                aria-label="Back to Forum"
+                title="Back to Forum"
+              >
+                <Icon name="close" className="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
