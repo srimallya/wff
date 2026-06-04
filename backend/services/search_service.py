@@ -51,6 +51,7 @@ def essay_to_dict(essay, current_user_id=None):
     return {
         'id': essay.id,
         'username': user.username if user else 'Unknown',
+        'title': essay.title or '',
         'content': essay.content,
         'country': essay.country or 'Global',
         'country_code': essay.country_code or 'GLOBAL',
@@ -153,7 +154,7 @@ def _semantic_matches(query, essays, existing_ids, min_similarity=0.25):
                 emb = None
         if emb is None:
             try:
-                emb = np.array(get_embedding(essay.content), dtype=np.float32)
+                emb = np.array(get_embedding(f'{essay.title or ""}\n{essay.content or ""}'), dtype=np.float32)
                 essay.embedding_json = json.dumps(emb.tolist())
             except Exception:
                 continue
@@ -183,7 +184,7 @@ def _query_matched_essays(query):
     search_terms = search_terms_for_query(normalized_query)
     lexical_matches = [
         essay for essay in essays
-        if any(term in (essay.content or '').lower() for term in search_terms)
+        if any(term in f'{essay.title or ""} {essay.content or ""}'.lower() for term in search_terms)
     ]
     lexical_ids = {essay.id for essay in lexical_matches}
     semantic_matches = _semantic_matches(normalized_query, essays, lexical_ids)

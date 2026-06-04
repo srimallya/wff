@@ -121,6 +121,7 @@ class Essay(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('wff_user.id'), nullable=False)
+    title = db.Column(db.String(50), nullable=True)
     content = db.Column(db.Text, nullable=False)
     country = db.Column(db.String(80), nullable=False, default='Global')
     country_code = db.Column(db.String(8), nullable=False, default='GLOBAL')

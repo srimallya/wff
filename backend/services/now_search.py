@@ -110,8 +110,20 @@ def _region_facets(stories):
     ]
 
 
-def _histogram(stories, bucket_hours=6, bucket_count=28):
+def _archive_hours(stories):
     now = datetime.utcnow()
+    hours = [
+        max(1, int((now - (story.published_at or story.fetched_at)).total_seconds() // 3600))
+        for story in stories
+        if story.published_at or story.fetched_at
+    ]
+    return max(hours, default=168)
+
+
+def _histogram(stories, bucket_count=28):
+    now = datetime.utcnow()
+    max_hours = _archive_hours(stories)
+    bucket_hours = max(1, max_hours / bucket_count)
     buckets = [
         {
             'start': (now - timedelta(hours=bucket_hours * (bucket_count - index))).isoformat(),
@@ -126,9 +138,14 @@ def _histogram(stories, bucket_hours=6, bucket_count=28):
             continue
         hours_ago = (now - stamp).total_seconds() / 3600
         index = bucket_count - 1 - int(hours_ago // bucket_hours)
+        if hours_ago >= max_hours:
+            index = 0
         if 0 <= index < bucket_count:
             buckets[index]['count'] += 1
-    return buckets
+    return {
+        'buckets': buckets,
+        'max_hours': max_hours,
+    }
 
 
 def search_now_stories(query='', region_code=None, hours_back=None, current_user_id=None, limit=30):
@@ -146,7 +163,9 @@ def search_now_stories(query='', region_code=None, hours_back=None, current_user
             if (story.region_code or 'GLOBAL').upper() == normalized_region
         ]
 
-    histogram = _histogram(region_matches)
+    histogram_payload = _histogram(region_matches)
+    histogram = histogram_payload['buckets']
+    max_hours = histogram_payload['max_hours']
     final_matches = region_matches
     if normalized_hours:
         threshold = datetime.utcnow() - timedelta(hours=normalized_hours)
@@ -161,6 +180,10 @@ def search_now_stories(query='', region_code=None, hours_back=None, current_user
         'facets': {
             'regions': region_facets,
             'histogram': histogram,
+            'archive': {
+                'max_hours': max_hours,
+                'selected_hours': normalized_hours,
+            },
         },
         'applied_filters': {
             'query': (query or '').strip(),

@@ -91,8 +91,8 @@ export const useStore = create((set, get) => ({
   nowStories: [],
   nowTotal: 0,
   nowFacets: { regions: [], histogram: [] },
-  nowAppliedFilters: { query: '', region_code: null, hours_back: 168 },
-  nowFilter: { query: '', regionCode: '', hoursBack: 168 },
+  nowAppliedFilters: { query: '', region_code: null, hours_back: null },
+  nowFilter: { query: '', regionCode: '', hoursBack: null },
   nowLoading: false,
   nowError: null,
   messageSearchResults: [],
@@ -521,6 +521,7 @@ export const useStore = create((set, get) => ({
     const optimisticEssay = {
       id: tempId,
       username: user.username,
+      title: essayData.title,
       content: essayData.content,
       country: essayData.country || 'Global',
       country_code: essayData.country_code || 'GLOBAL',
@@ -574,12 +575,12 @@ export const useStore = create((set, get) => ({
     }
   },
 
-  updateEssay: async (essayId, content) => {
+  updateEssay: async (essayId, content, title = null) => {
     try {
       const res = await apiFetch(`${API_BASE}/essays/${essayId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, ...(title !== null ? { title } : {}) }),
       })
       const d = await res.json()
       if (res.ok) {
@@ -733,7 +734,7 @@ export const useStore = create((set, get) => ({
     return get().fetchNowStories()
   },
   clearNowSearch: () => {
-    set((state) => ({ nowFilter: { ...state.nowFilter, query: '', regionCode: '', hoursBack: 168 } }))
+    set((state) => ({ nowFilter: { ...state.nowFilter, query: '', regionCode: '', hoursBack: null } }))
     return get().fetchNowStories()
   },
   voteNowStory: async (storyId, value) => {

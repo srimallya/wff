@@ -300,6 +300,13 @@ input[type="range"] {
   font-weight: 500;
 }
 
+.essay-card-title {
+  color: var(--wff-text-strong);
+  font-size: 1.04rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
 .now-story {
   border-top: 1px solid var(--wff-border);
   padding: 1.25rem 0;

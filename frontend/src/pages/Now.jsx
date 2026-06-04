@@ -17,7 +17,21 @@ function relativeTime(value) {
   return `${days}d`
 }
 
-function NowHistogram({ buckets, value, onChange }) {
+function archiveLabel(hours) {
+  if (!hours || hours <= 1) return 'Now'
+  if (hours < 48) return `${hours}h`
+  const days = Math.round(hours / 24)
+  if (days < 60) return `${days}d`
+  const months = Math.round(days / 30)
+  if (months < 24) return `${months}mo`
+  const years = Math.round(days / 365)
+  return `${years}y`
+}
+
+function NowHistogram({ buckets, value, maxHours, onChange }) {
+  const archiveMax = Math.max(1, Math.round(maxHours || 168))
+  const selectedHours = value ? Math.max(1, Math.min(value, archiveMax)) : 1
+  const rawValue = archiveMax - selectedHours + 1
   const maxCount = Math.max(...(buckets || []).map((bucket) => bucket.count || 0), 0)
   const areaPath = useMemo(() => {
     const items = buckets?.length ? buckets : Array.from({ length: 28 }, () => ({ count: 0 }))
@@ -43,21 +57,21 @@ function NowHistogram({ buckets, value, onChange }) {
           <div className="absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-dark-border" />
           <div
             className="pointer-events-none absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary"
-            style={{ left: `${(value / 168) * 100}%` }}
+            style={{ left: `${archiveMax <= 1 ? 100 : ((rawValue - 1) / (archiveMax - 1)) * 100}%` }}
           />
           <input
             type="range"
             min={1}
-            max={168}
-            value={value}
-            onChange={(event) => onChange(parseInt(event.target.value, 10))}
+            max={archiveMax}
+            value={rawValue}
+            onChange={(event) => onChange(archiveMax - parseInt(event.target.value, 10) + 1)}
             className="absolute inset-x-0 top-0 h-8 w-full cursor-pointer opacity-0"
           />
         </div>
       </div>
       <div className="flex justify-between px-4 text-xs text-gray-500">
-        <span>1h</span>
-        <span>{value === 168 ? '7d' : `${value}h`}</span>
+        <span>{archiveLabel(archiveMax)}</span>
+        <span>Now</span>
       </div>
     </div>
   )
@@ -185,6 +199,8 @@ export default function Now() {
 
   const featured = nowStories[0]
   const rest = nowStories.slice(1)
+  const archiveMaxHours = nowFacets.archive?.max_hours || 168
+  const hasNowFilters = Boolean(nowFilter.query || nowFilter.regionCode || nowFilter.hoursBack)
 
   return (
     <div className="app-shell">
@@ -236,7 +252,7 @@ export default function Now() {
                 tabIndex={filtersOpen ? 0 : -1}
               />
               <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-4">
-                {(nowFilter.query || nowFilter.regionCode) && (
+                {hasNowFilters && (
                   <button type="button" onClick={handleClear} className="swiss-line-button" tabIndex={filtersOpen ? 0 : -1}>
                     Clear
                   </button>
@@ -248,14 +264,11 @@ export default function Now() {
             </form>
 
             <div className="swiss-panel no-top-divider space-y-5">
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div className="text-sm text-gray-400">
-                  Semantic <span className="text-gray-500">›</span> regions <span className="text-gray-500">›</span> slider
-                </div>
+              <div className="flex items-center justify-end">
                 <select
                   value={nowFilter.regionCode || ''}
                   onChange={(event) => setNowRegion(event.target.value)}
-                  className="w-full sm:w-56 border-0 border-b px-0 py-2 text-sm focus:outline-none focus:border-primary"
+                  className="w-full border-0 border-b px-0 py-2 text-sm focus:outline-none focus:border-primary"
                   tabIndex={filtersOpen ? 0 : -1}
                 >
                   <option value="">All regions</option>
@@ -268,19 +281,24 @@ export default function Now() {
               </div>
               <NowHistogram
                 buckets={nowFacets.histogram || []}
-                value={nowFilter.hoursBack || 168}
+                value={nowFilter.hoursBack}
+                maxHours={archiveMaxHours}
                 onChange={setNowHoursBack}
               />
             </div>
 
-            {nowFilter.query && (
-              <div className="text-sm text-gray-400">{nowTotal} stories for "{nowFilter.query}"</div>
+            {hasNowFilters && (
+              <div className="text-sm text-gray-400">
+                {nowTotal} stories
+                {nowFilter.query ? ` for "${nowFilter.query}"` : ''}
+                {nowFilter.hoursBack ? ` from the last ${archiveLabel(nowFilter.hoursBack)}` : ''}
+              </div>
             )}
             {nowError && <div className="border-l border-primary pl-3 text-sm text-red-500">{nowError}</div>}
           </div>
         </section>
 
-        {!filtersOpen && (nowFilter.query || nowFilter.regionCode) && (
+        {!filtersOpen && hasNowFilters && (
           <div className="feed-search-summary mt-7">
             <span>{nowTotal} filtered stories</span>
             <div className="flex items-center gap-4">
@@ -290,7 +308,7 @@ export default function Now() {
           </div>
         )}
 
-        <div className={`${filtersOpen || nowFilter.query || nowFilter.regionCode ? 'mt-7' : ''}`}>
+        <div className={`${filtersOpen || hasNowFilters ? 'mt-7' : ''}`}>
           {nowLoading && nowStories.length === 0 ? (
             <div className="py-12 text-center text-sm text-gray-500">Loading...</div>
           ) : nowStories.length === 0 ? (

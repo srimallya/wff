@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.4.3
+
+### Now
+
+- Reworked Now search as additive archive navigation: semantic query, optional region, and optional time depth work independently and hierarchically together.
+- Removed instructional search breadcrumb text from the Now search controls.
+- Made the Now histogram and slider archive-aware so the right edge represents Now and the left edge expands as stored stories age.
+- Stopped applying a hidden default 7-day Now filter.
+
+### Essays
+
+- Added required essay titles with a 50-character limit on the Write page.
+- Added title display to Forum cards with stronger typography.
+- Added title validation and title-aware search/embedding inputs on the backend.
+- Added a Cerebras-backed one-time title backfill job for legacy titleless essays.
+
 ## v1.4.2
 
 ### Messaging

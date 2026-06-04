@@ -153,6 +153,11 @@ def create_essay():
         return jsonify({'error': 'Content must be at least 50 characters'}), 400
     if len(content) > 5000:
         return jsonify({'error': 'Content must be at most 5000 characters'}), 400
+    title = str(data.get('title') or '').strip()
+    if not title:
+        return jsonify({'error': 'Title is required'}), 400
+    if len(title) > 50:
+        return jsonify({'error': 'Title must be at most 50 characters'}), 400
 
     username = data.get('username')
     user = User.query.filter_by(username=username).first()
@@ -179,6 +184,7 @@ def create_essay():
 
     essay = Essay(
         user_id=user.id,
+        title=title,
         content=content,
         country=country,
         country_code=country_code,
@@ -195,7 +201,7 @@ def create_essay():
     # Generate semantic embedding asynchronously (don't fail creation if this errors)
     try:
         from backend.services.embedding import get_embedding
-        essay.embedding_json = json.dumps(get_embedding(content))
+        essay.embedding_json = json.dumps(get_embedding(f'{title}\n{content}'))
         db.session.commit()
     except Exception as e:
         import logging
@@ -223,7 +229,13 @@ def update_essay(essay_id):
         return jsonify({'error': 'Content must be at least 50 characters'}), 400
     if len(content) > 5000:
         return jsonify({'error': 'Content must be at most 5000 characters'}), 400
+    title = str(data.get('title') if data.get('title') is not None else essay.title or '').strip()
+    if not title:
+        return jsonify({'error': 'Title is required'}), 400
+    if len(title) > 50:
+        return jsonify({'error': 'Title must be at most 50 characters'}), 400
 
+    essay.title = title
     essay.content = content
     essay.edit_count = (essay.edit_count or 0) + 1
     essay.edited_at = datetime.utcnow()
@@ -232,7 +244,7 @@ def update_essay(essay_id):
 
     try:
         from backend.services.embedding import get_embedding
-        essay.embedding_json = json.dumps(get_embedding(content))
+        essay.embedding_json = json.dumps(get_embedding(f'{title}\n{content}'))
         db.session.commit()
     except Exception as e:
         import logging

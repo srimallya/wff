@@ -27,6 +27,7 @@ def ensure_schema():
 
     essay_columns = {column['name'] for column in inspector.get_columns('wff_essay')}
     essay_additions = {
+        'title': 'VARCHAR(50)',
         'country': 'VARCHAR(80) NOT NULL DEFAULT "Global"',
         'country_code': 'VARCHAR(8) NOT NULL DEFAULT "GLOBAL"',
         'edited_at': 'DATETIME',

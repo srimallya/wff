@@ -7,6 +7,7 @@ from flask import Flask
 from backend.models import Essay, User, db
 from backend.routes.auth import auth_bp
 from backend.routes.essays import essays_bp
+from backend.services.essay_titles import backfill_essay_titles
 
 
 def make_app():
@@ -39,6 +40,7 @@ class EssayManagementTest(unittest.TestCase):
             db.session.flush()
             essay = Essay(
                 user_id=author.id,
+                title='Original Futures',
                 content='This is a long enough original post about public futures and institutions.',
                 country='Global',
                 country_code='GLOBAL',
@@ -47,6 +49,7 @@ class EssayManagementTest(unittest.TestCase):
             )
             old_essay = Essay(
                 user_id=author.id,
+                title='Old Futures',
                 content='This is an old post that should no longer be manageable by the author.',
                 country='Global',
                 country_code='GLOBAL',
@@ -75,6 +78,7 @@ class EssayManagementTest(unittest.TestCase):
         content = 'This edited post is long enough and clearly updates the original futures argument.'
         first = self.client.patch(f'/essays/{self.essay_id}', json={'content': content}, headers=headers)
         self.assertEqual(first.status_code, 200)
+        self.assertEqual(first.get_json()['title'], 'Original Futures')
         self.assertEqual(first.get_json()['content'], content)
         self.assertEqual(first.get_json()['edit_count'], 1)
         self.assertFalse(first.get_json()['can_edit'])
@@ -91,10 +95,39 @@ class EssayManagementTest(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
+    def test_create_requires_title_and_accepts_valid_title(self):
+        headers = self.auth_headers()
+        payload = {
+            'username': 'author',
+            'content': 'This new post is long enough to describe future institutions and civic trust clearly.',
+            'look_ahead_months': 120,
+            'country': 'Global',
+            'country_code': 'GLOBAL',
+        }
+        missing = self.client.post('/essays', json=payload, headers=headers)
+        self.assertEqual(missing.status_code, 400)
+        self.assertEqual(missing.get_json()['error'], 'Title is required')
+
+        created = self.client.post('/essays', json={**payload, 'title': 'Civic Trust Futures'}, headers=headers)
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(created.get_json()['title'], 'Civic Trust Futures')
+
     def test_old_post_cannot_be_deleted(self):
         headers = self.auth_headers()
         response = self.client.delete(f'/essays/{self.old_essay_id}', json={}, headers=headers)
         self.assertEqual(response.status_code, 403)
+
+    def test_backfill_essay_titles_updates_titleless_posts(self):
+        with self.app.app_context():
+            essay = db.session.get(Essay, self.essay_id)
+            essay.title = None
+            db.session.commit()
+
+            with patch('backend.services.essay_titles.generate_title_with_cerebras', return_value=('Generated Future', 'gpt-oss-120b', '')):
+                result = backfill_essay_titles()
+
+            self.assertEqual(result['updated'], 1)
+            self.assertEqual(db.session.get(Essay, self.essay_id).title, 'Generated Future')
 
 
 if __name__ == '__main__':

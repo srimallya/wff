@@ -31,6 +31,7 @@ export default function Profile() {
   const [myEssays, setMyEssays] = useState([])
   const [essaysLoading, setEssaysLoading] = useState(false)
   const [editingEssayId, setEditingEssayId] = useState(null)
+  const [editTitle, setEditTitle] = useState('')
   const [editContent, setEditContent] = useState('')
   const [postActionBusy, setPostActionBusy] = useState(null)
   const [postActionError, setPostActionError] = useState('')
@@ -91,17 +92,28 @@ export default function Profile() {
   const startEditEssay = (essay) => {
     setPostActionError('')
     setEditingEssayId(essay.id)
+    setEditTitle(essay.title || '')
     setEditContent(essay.content)
   }
 
   const cancelEditEssay = () => {
     setEditingEssayId(null)
+    setEditTitle('')
     setEditContent('')
     setPostActionError('')
   }
 
   const saveEditEssay = async (essayId) => {
+    const title = editTitle.trim()
     const content = editContent.trim()
+    if (!title) {
+      setPostActionError('Title is required')
+      return
+    }
+    if (title.length > 50) {
+      setPostActionError('Title must be at most 50 characters')
+      return
+    }
     if (content.length < 50) {
       setPostActionError('Post must be at least 50 characters')
       return
@@ -112,7 +124,7 @@ export default function Profile() {
     }
     setPostActionBusy(`edit-${essayId}`)
     setPostActionError('')
-    const result = await updateEssay(essayId, content)
+    const result = await updateEssay(essayId, content, title)
     setPostActionBusy(null)
     if (!result.success) {
       setPostActionError(result.error)
@@ -120,6 +132,7 @@ export default function Profile() {
     }
     setMyEssays((items) => items.map((essay) => essay.id === essayId ? { ...essay, ...result.essay } : essay))
     setEditingEssayId(null)
+    setEditTitle('')
     setEditContent('')
   }
 
@@ -534,6 +547,7 @@ export default function Profile() {
                     {postActionError && <p className="border-l border-primary pl-3 text-sm text-red-500">{postActionError}</p>}
                     {myEssays.map((essay) => {
                       const isEditing = editingEssayId === essay.id
+                      const editTitleLen = editTitle.trim().length
                       const editLen = editContent.trim().length
                       const isSaving = postActionBusy === `edit-${essay.id}`
                       const isDeletingPost = postActionBusy === `delete-${essay.id}`
@@ -542,6 +556,13 @@ export default function Profile() {
                           <EssayCard essay={essay} />
                           {isEditing ? (
                             <div className="border-t border-dark-border pt-4 space-y-3">
+                              <input
+                                type="text"
+                                value={editTitle}
+                                onChange={(event) => setEditTitle(event.target.value.slice(0, 50))}
+                                maxLength={50}
+                                className="w-full border-0 border-b px-0 py-3 text-base font-semibold focus:outline-none focus:border-primary"
+                              />
                               <textarea
                                 value={editContent}
                                 onChange={(event) => setEditContent(event.target.value)}
@@ -549,15 +570,15 @@ export default function Profile() {
                                 className="w-full h-48 resize-none border-0 border-b px-0 py-3 text-sm focus:outline-none focus:border-primary"
                               />
                               <div className="flex items-center justify-between gap-3">
-                                <span className={`text-sm ${editLen < 50 || editLen > 5000 ? 'text-red-500' : 'text-gray-500'}`}>
-                                  {editLen < 50 ? `${50 - editLen} more characters` : `${editLen} / 5000`}
+                                <span className={`text-sm ${editTitleLen < 1 || editTitleLen > 50 || editLen < 50 || editLen > 5000 ? 'text-red-500' : 'text-gray-500'}`}>
+                                  {editTitleLen < 1 ? 'Title required' : editLen < 50 ? `${50 - editLen} more characters` : `${editTitleLen} / 50 · ${editLen} / 5000`}
                                 </span>
                                 <div className="flex items-center gap-4">
                                   <IconButton type="button" onClick={cancelEditEssay} icon="close" label="Cancel" />
                                   <IconButton
                                     type="button"
                                     onClick={() => saveEditEssay(essay.id)}
-                                    disabled={isSaving || editLen < 50 || editLen > 5000}
+                                    disabled={isSaving || editTitleLen < 1 || editTitleLen > 50 || editLen < 50 || editLen > 5000}
                                     icon="check"
                                     label={isSaving ? 'Saving' : 'Save edit'}
                                     className="icon-button-primary"

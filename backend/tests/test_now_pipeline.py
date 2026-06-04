@@ -66,6 +66,8 @@ class NowPipelineTest(unittest.TestCase):
         self.assertEqual(data['stories'][0]['region_code'], 'IND')
         self.assertEqual(data['facets']['regions'][0]['region_code'], 'IND')
         self.assertEqual(len(data['facets']['histogram']), 28)
+        self.assertGreaterEqual(data['facets']['archive']['max_hours'], 1)
+        self.assertEqual(data['facets']['archive']['selected_hours'], 24)
 
     def test_now_story_vote_uses_existing_user_votes_shape(self):
         response = self.client.post(f'/now/{self.story_id}/vote', json={

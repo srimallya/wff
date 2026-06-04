@@ -77,6 +77,9 @@ export default function EssayCard({ essay }) {
             <span>•</span>
             <span>{essay.target_calendar_year}</span>
           </div>
+          {essay.title && (
+            <h2 className="essay-card-title">{essay.title}</h2>
+          )}
           <p className="text-sm leading-relaxed whitespace-pre-wrap">{essay.content}</p>
           <div className="flex items-center justify-end text-xs text-gray-600">
             <span>{localVotes.upvotes} ▲ {localVotes.downvotes} ▼</span>

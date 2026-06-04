@@ -8,10 +8,12 @@ export default function EssayComposer({ onSubmit, isSubmitting }) {
   const [countryCode, setCountryCode] = useState('GLOBAL')
   const [countryInput, setCountryInput] = useState('Global')
   const [countryFocused, setCountryFocused] = useState(false)
+  const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
 
+  const titleLen = title.trim().length
   const len = content.trim().length
-  const isValid = len >= 50 && len <= 5000 && lookAheadMonths > 0
+  const isValid = titleLen > 0 && titleLen <= 50 && len >= 50 && len <= 5000 && lookAheadMonths > 0
 
   const handleSubmit = () => {
     if (!isValid) return
@@ -20,6 +22,7 @@ export default function EssayComposer({ onSubmit, isSubmitting }) {
       look_ahead_months: lookAheadMonths,
       country_code: country.code,
       country: country.name,
+      title: title.trim(),
       content: content.trim(),
     })
   }
@@ -94,6 +97,20 @@ export default function EssayComposer({ onSubmit, isSubmitting }) {
       <div className="swiss-panel space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-medium">Your foresight post</h3>
+        </div>
+
+        <div className="space-y-2">
+          <input
+            type="text"
+            value={title}
+            onChange={(event) => setTitle(event.target.value.slice(0, 50))}
+            maxLength={50}
+            placeholder="Title"
+            className="w-full border-0 border-b px-0 py-3 text-base font-semibold focus:outline-none focus:border-primary"
+          />
+          <div className="flex justify-end text-xs text-gray-500">
+            <span className={titleLen > 50 || titleLen === 0 ? 'text-red-500' : ''}>{titleLen} / 50</span>
+          </div>
         </div>
 
         <textarea
