@@ -5,6 +5,7 @@ import { useStore } from '../store/zustandStore'
 import EssayCard from '../components/EssayCard'
 import { IconButton } from '../components/Icons'
 import BottomNav from '../components/BottomNav'
+import RichText from '../components/RichText'
 
 function CommentCard({ comment, onVote, onReply, replyingTo, replyContent, setReplyContent, submitReply, submittingReply }) {
   const [score, setScore] = useState(comment.score || 0)
@@ -35,7 +36,9 @@ function CommentCard({ comment, onVote, onReply, replyingTo, replyContent, setRe
             <span className="mx-2">•</span>
             <span>{new Date(comment.created_at).toLocaleString()}</span>
           </div>
-          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{comment.content}</p>
+          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+            <RichText text={comment.content} />
+          </p>
           <div className="flex items-center gap-4 text-xs text-gray-500">
             <span>{votes.upvotes} ▲ {votes.downvotes} ▼</span>
             <button type="button" onClick={() => onReply(comment.id)} className="text-primary">Reply</button>
@@ -64,7 +67,9 @@ function CommentCard({ comment, onVote, onReply, replyingTo, replyContent, setRe
                     <span className="mx-2">•</span>
                     <span>{new Date(reply.created_at).toLocaleString()}</span>
                   </div>
-                  <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{reply.content}</p>
+                  <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                    <RichText text={reply.content} />
+                  </p>
                 </div>
               ))}
             </div>

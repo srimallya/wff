@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/zustandStore'
+import RichText from './RichText'
 
 export default function EssayCard({ essay }) {
   const navigate = useNavigate()
@@ -80,7 +81,9 @@ export default function EssayCard({ essay }) {
           {essay.title && (
             <h2 className="essay-card-title">{essay.title}</h2>
           )}
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">{essay.content}</p>
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">
+            <RichText text={essay.content} />
+          </p>
           <div className="flex items-center justify-end text-xs text-gray-600">
             <span>{localVotes.upvotes} ▲ {localVotes.downvotes} ▼</span>
             <span className="ml-3">{essay.comment_count || 0} comments</span>

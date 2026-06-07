@@ -2,6 +2,12 @@
 
 ## v1.4.3
 
+### Messaging
+
+- Fixed old private-message date separators so month/day labels render in English instead of Bengali.
+- Linkified URLs in private messages, essays, comments, and replies.
+- Added a WFF in-app browser route for opening linked pages without launching a separate browser tab.
+
 ### Now
 
 - Reworked Now search as additive archive navigation: semantic query, optional region, and optional time depth work independently and hierarchically together.

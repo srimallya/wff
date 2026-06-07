@@ -12,6 +12,7 @@ import Profile from './pages/Profile'
 import Notifications from './pages/Notifications'
 import Messages from './pages/Messages'
 import Conversation from './pages/Conversation'
+import AppBrowser from './pages/AppBrowser'
 import { useStore } from './store/zustandStore'
 
 const routerBasename = import.meta.env.BASE_URL === '/'
@@ -59,6 +60,7 @@ function App() {
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/messages" element={<Messages />} />
           <Route path="/messages/:conversationId" element={<Conversation />} />
+          <Route path="/browser" element={<AppBrowser />} />
         </Routes>
       </div>
     </BrowserRouter>

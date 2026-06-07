@@ -4,6 +4,7 @@ import { useStore } from '../store/zustandStore'
 import { IconButton } from '../components/Icons'
 import { API_BASE } from '../api'
 import { acceptConversationIdentityChange, markConversationIdentityVerified } from '../services/astrClient'
+import RichText from '../components/RichText'
 
 const APP_TIME_ZONE = 'Asia/Kolkata'
 const SERVER_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/
@@ -48,9 +49,9 @@ function dateBucket(value) {
   if (diffDays < 7) return 'This week'
   if (messageDay.year === today.year && messageDay.month === today.month) return 'This month'
   if (messageDay.year === today.year) {
-    return date.toLocaleDateString('bn-BD', { timeZone: APP_TIME_ZONE, month: 'long', day: 'numeric' })
+    return date.toLocaleDateString('en-US', { timeZone: APP_TIME_ZONE, month: 'short', day: 'numeric' })
   }
-  return date.toLocaleDateString('bn-BD', { timeZone: APP_TIME_ZONE, year: 'numeric', month: 'long', day: 'numeric' })
+  return date.toLocaleDateString('en-US', { timeZone: APP_TIME_ZONE, year: 'numeric', month: 'short', day: 'numeric' })
 }
 
 const NICKNAME_KEY = 'wff_friend_nicknames'
@@ -561,7 +562,9 @@ export default function Conversation() {
                             </p>
                           )}
                           {message.body && (
-                            <p className="whitespace-pre-wrap break-words">{displayMessageBody(message.body)}</p>
+                            <p className="whitespace-pre-wrap break-words">
+                              <RichText text={displayMessageBody(message.body)} />
+                            </p>
                           )}
                           {message.media && (
                             <div

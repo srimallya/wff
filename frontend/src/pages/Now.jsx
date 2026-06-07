@@ -106,7 +106,8 @@ function NowStoryCard({ story }) {
   }
 
   const openStory = () => {
-    window.open(story.url, '_blank', 'noopener,noreferrer')
+    const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
+    window.location.href = `${basePath}/browser?url=${encodeURIComponent(story.url)}`
   }
 
   return (
