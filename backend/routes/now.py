@@ -22,6 +22,8 @@ def list_now_stories():
         query=request.args.get('q', ''),
         region_code=request.args.get('region_code'),
         hours_back=request.args.get('hours_back'),
+        time_start=request.args.get('time_start'),
+        time_end=request.args.get('time_end'),
         current_user_id=_current_user_id_from_request(),
         limit=request.args.get('limit', 30),
     ))
@@ -38,6 +40,8 @@ def search_now():
         query=data.get('query', ''),
         region_code=data.get('region_code'),
         hours_back=data.get('hours_back'),
+        time_start=data.get('time_start'),
+        time_end=data.get('time_end'),
         current_user_id=current_user_id,
         limit=data.get('limit', 30),
     ))

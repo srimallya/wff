@@ -22,6 +22,18 @@ function mockSearchResponse(essays = [], years = []) {
   }
 }
 
+function mockNowResponse(stories = [], facets = { regions: [], histogram: [] }) {
+  return {
+    ok: true,
+    json: async () => ({
+      stories,
+      total: stories.length,
+      facets,
+      applied_filters: { query: '', region_code: null, hours_back: null },
+    }),
+  }
+}
+
 async function loadStore(seedLocalStorage = {}) {
   vi.resetModules()
   globalThis.localStorage = localStorageMock()
@@ -35,6 +47,10 @@ async function loadStore(seedLocalStorage = {}) {
 function lastFetchBody() {
   const call = globalThis.fetch.mock.calls.at(-1)
   return JSON.parse(call[1].body)
+}
+
+function lastFetchUrl() {
+  return new URL(globalThis.fetch.mock.calls.at(-1)[0], globalThis.window.location.origin)
 }
 
 describe('WFF feed search store', () => {
@@ -152,5 +168,71 @@ describe('WFF feed search store', () => {
     expect(state.searchAppliedFilters).toEqual({ query: '', country_code: null, year: null })
     expect(state.searchYearCounts).toEqual([])
     expect(state.searchError).toBeNull()
+  })
+
+  it('reruns active Now search on region change while preserving selected archive slice', async () => {
+    const useStore = await loadStore()
+    useStore.setState({
+      nowFilter: { query: 'climate', regionCode: '', hoursBack: null, timeStart: '2026-06-01T00:00:00', timeEnd: '2026-06-01T01:00:00' },
+    })
+    globalThis.fetch.mockResolvedValueOnce(mockNowResponse())
+
+    await useStore.getState().setNowRegion('IND')
+
+    const state = useStore.getState()
+    const url = lastFetchUrl()
+    expect(state.nowFilter).toMatchObject({
+      query: 'climate',
+      regionCode: 'IND',
+      hoursBack: null,
+      timeStart: '2026-06-01T00:00:00',
+      timeEnd: '2026-06-01T01:00:00',
+    })
+    expect(url.pathname).toContain('/now')
+    expect(url.searchParams.get('q')).toBe('climate')
+    expect(url.searchParams.get('region_code')).toBe('IND')
+    expect(url.searchParams.has('hours_back')).toBe(false)
+    expect(url.searchParams.get('time_start')).toBe('2026-06-01T00:00:00')
+    expect(url.searchParams.get('time_end')).toBe('2026-06-01T01:00:00')
+  })
+
+  it('reruns active Now search with selected time depth from the archive slider', async () => {
+    const useStore = await loadStore()
+    useStore.setState({
+      nowFilter: { query: 'climate', regionCode: 'IND', hoursBack: null },
+    })
+    globalThis.fetch.mockResolvedValueOnce(mockNowResponse())
+
+    await useStore.getState().setNowHoursBack(48)
+
+    const url = lastFetchUrl()
+    expect(useStore.getState().nowFilter).toMatchObject({ query: 'climate', regionCode: 'IND', hoursBack: 48 })
+    expect(url.searchParams.get('q')).toBe('climate')
+    expect(url.searchParams.get('region_code')).toBe('IND')
+    expect(url.searchParams.get('hours_back')).toBe('48')
+  })
+
+  it('reruns active Now search with selected archive time window', async () => {
+    const useStore = await loadStore()
+    useStore.setState({
+      nowFilter: { query: 'climate', regionCode: 'IND', hoursBack: 48, timeStart: null, timeEnd: null },
+    })
+    globalThis.fetch.mockResolvedValueOnce(mockNowResponse())
+
+    await useStore.getState().setNowTimeWindow('2026-06-01T00:00:00', '2026-06-01T01:00:00')
+
+    const url = lastFetchUrl()
+    expect(useStore.getState().nowFilter).toMatchObject({
+      query: 'climate',
+      regionCode: 'IND',
+      hoursBack: null,
+      timeStart: '2026-06-01T00:00:00',
+      timeEnd: '2026-06-01T01:00:00',
+    })
+    expect(url.searchParams.get('q')).toBe('climate')
+    expect(url.searchParams.get('region_code')).toBe('IND')
+    expect(url.searchParams.has('hours_back')).toBe(false)
+    expect(url.searchParams.get('time_start')).toBe('2026-06-01T00:00:00')
+    expect(url.searchParams.get('time_end')).toBe('2026-06-01T01:00:00')
   })
 })

@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from flask import Flask
 
-from backend.models import NowSource, NowStory, User, db
+from backend.models import NowSource, NowStory, NowStoryVote, User, db
 from backend.routes.now import now_bp
 from backend.services.now_pipeline import FeedRecord, ensure_default_sources
 
@@ -51,6 +51,7 @@ class NowPipelineTest(unittest.TestCase):
             db.session.add(story)
             db.session.commit()
             self.story_id = story.id
+            self.user_id = user.id
 
     def tearDown(self):
         with self.app.app_context():
@@ -68,6 +69,55 @@ class NowPipelineTest(unittest.TestCase):
         self.assertEqual(len(data['facets']['histogram']), 28)
         self.assertGreaterEqual(data['facets']['archive']['max_hours'], 1)
         self.assertEqual(data['facets']['archive']['selected_hours'], 24)
+
+    def test_now_time_slice_filters_independently_and_ranks_by_votes(self):
+        with self.app.app_context():
+            source = NowSource.query.filter_by(name='BBC World').first()
+            older_high = NowStory(
+                source_id=source.id,
+                source_name=source.name,
+                source_url=source.url,
+                title='Archive peak story with public signal',
+                url='https://example.com/archive-peak-high',
+                canonical_url='https://example.com/archive-peak-high',
+                summary='A high signal archive story.',
+                excerpt='A high signal archive story.',
+                original_content='Archive story public signal.',
+                region='Global',
+                region_code='GLOBAL',
+                published_at=datetime.utcnow() - timedelta(hours=9),
+                fetched_at=datetime.utcnow(),
+            )
+            older_low = NowStory(
+                source_id=source.id,
+                source_name=source.name,
+                source_url=source.url,
+                title='Archive peak story without votes',
+                url='https://example.com/archive-peak-low',
+                canonical_url='https://example.com/archive-peak-low',
+                summary='A lower signal archive story.',
+                excerpt='A lower signal archive story.',
+                original_content='Archive story lower signal.',
+                region='Global',
+                region_code='GLOBAL',
+                published_at=datetime.utcnow() - timedelta(hours=8),
+                fetched_at=datetime.utcnow(),
+            )
+            db.session.add_all([older_high, older_low])
+            db.session.flush()
+            db.session.add(NowStoryVote(user_id=self.user_id, story_id=older_high.id, value=1))
+            db.session.commit()
+            start = (datetime.utcnow() - timedelta(hours=10)).isoformat()
+            end = (datetime.utcnow() - timedelta(hours=7)).isoformat()
+
+        response = self.client.get(f'/now?time_start={start}&time_end={end}')
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+
+        self.assertEqual(data['total'], 2)
+        self.assertEqual(data['stories'][0]['title'], 'Archive peak story with public signal')
+        self.assertEqual(data['applied_filters']['time_start'], start)
+        self.assertEqual(data['applied_filters']['time_end'], end)
 
     def test_now_story_vote_uses_existing_user_votes_shape(self):
         response = self.client.post(f'/now/{self.story_id}/vote', json={

@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.4.4
+
+### Now
+
+- Changed the Now archive slider from a "last N hours" depth control into an independent histogram time-slice selector.
+- Preserved selected archive slices when applying semantic search or region filters, so users can start from any control.
+- Added `time_start` and `time_end` filtering to the Now API.
+- Ranked filtered Now result fields by story score, with recency as the tie-breaker.
+
 ## v1.4.3
 
 ### Messaging

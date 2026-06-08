@@ -91,8 +91,8 @@ export const useStore = create((set, get) => ({
   nowStories: [],
   nowTotal: 0,
   nowFacets: { regions: [], histogram: [] },
-  nowAppliedFilters: { query: '', region_code: null, hours_back: null },
-  nowFilter: { query: '', regionCode: '', hoursBack: null },
+  nowAppliedFilters: { query: '', region_code: null, hours_back: null, time_start: null, time_end: null },
+  nowFilter: { query: '', regionCode: '', hoursBack: null, timeStart: null, timeEnd: null },
   nowLoading: false,
   nowError: null,
   messageSearchResults: [],
@@ -695,6 +695,8 @@ export const useStore = create((set, get) => ({
     if (nowFilter.query) params.set('q', nowFilter.query)
     if (nowFilter.regionCode) params.set('region_code', nowFilter.regionCode)
     if (nowFilter.hoursBack) params.set('hours_back', String(nowFilter.hoursBack))
+    if (nowFilter.timeStart) params.set('time_start', nowFilter.timeStart)
+    if (nowFilter.timeEnd) params.set('time_end', nowFilter.timeEnd)
     if (user.id) params.set('current_user_id', String(user.id))
     params.set('limit', '40')
     set({ nowLoading: true, nowError: null })
@@ -710,6 +712,8 @@ export const useStore = create((set, get) => ({
             query: nowFilter.query,
             region_code: nowFilter.regionCode || null,
             hours_back: nowFilter.hoursBack,
+            time_start: nowFilter.timeStart,
+            time_end: nowFilter.timeEnd,
           },
           nowLoading: false,
         })
@@ -730,11 +734,15 @@ export const useStore = create((set, get) => ({
     return get().fetchNowStories()
   },
   setNowHoursBack: (hoursBack) => {
-    set((state) => ({ nowFilter: { ...state.nowFilter, hoursBack } }))
+    set((state) => ({ nowFilter: { ...state.nowFilter, hoursBack, timeStart: null, timeEnd: null } }))
+    return get().fetchNowStories()
+  },
+  setNowTimeWindow: (timeStart, timeEnd) => {
+    set((state) => ({ nowFilter: { ...state.nowFilter, hoursBack: null, timeStart, timeEnd } }))
     return get().fetchNowStories()
   },
   clearNowSearch: () => {
-    set((state) => ({ nowFilter: { ...state.nowFilter, query: '', regionCode: '', hoursBack: null } }))
+    set((state) => ({ nowFilter: { ...state.nowFilter, query: '', regionCode: '', hoursBack: null, timeStart: null, timeEnd: null } }))
     return get().fetchNowStories()
   },
   voteNowStory: async (storyId, value) => {

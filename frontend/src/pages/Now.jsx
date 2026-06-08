@@ -28,13 +28,28 @@ function archiveLabel(hours) {
   return `${years}y`
 }
 
-function NowHistogram({ buckets, value, maxHours, onChange }) {
+function parseTime(value) {
+  const time = value ? new Date(value).getTime() : NaN
+  return Number.isNaN(time) ? null : time
+}
+
+function NowHistogram({ buckets, timeStart, timeEnd, maxHours, onChange }) {
   const archiveMax = Math.max(1, Math.round(maxHours || 168))
-  const selectedHours = value ? Math.max(1, Math.min(value, archiveMax)) : 1
-  const rawValue = archiveMax - selectedHours + 1
+  const items = buckets?.length ? buckets : Array.from({ length: 28 }, (_, index) => ({ index, count: 0 }))
+  const selectedStart = parseTime(timeStart)
+  const selectedEnd = parseTime(timeEnd)
+  const selectedMidpoint = selectedStart && selectedEnd ? (selectedStart + selectedEnd) / 2 : null
+  const selectedIndex = selectedMidpoint
+    ? items.reduce((best, bucket, index) => {
+        const start = parseTime(bucket.start)
+        const end = parseTime(bucket.end)
+        if (!start || !end) return best
+        const distance = Math.abs(((start + end) / 2) - selectedMidpoint)
+        return distance < best.distance ? { index, distance } : best
+      }, { index: items.length - 1, distance: Number.POSITIVE_INFINITY }).index
+    : items.length - 1
   const maxCount = Math.max(...(buckets || []).map((bucket) => bucket.count || 0), 0)
   const areaPath = useMemo(() => {
-    const items = buckets?.length ? buckets : Array.from({ length: 28 }, () => ({ count: 0 }))
     const points = items.map((bucket, index) => {
       const normalized = maxCount > 0 ? (bucket.count || 0) / maxCount : 0
       return {
@@ -43,7 +58,13 @@ function NowHistogram({ buckets, value, maxHours, onChange }) {
       }
     })
     return `M 0 28 L ${points.map((point) => `${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' L ')} L 100 28 Z`
-  }, [buckets, maxCount])
+  }, [items, maxCount])
+
+  const handleChange = (rawValue) => {
+    const index = Math.max(0, Math.min(items.length - 1, parseInt(rawValue, 10)))
+    const bucket = items[index]
+    if (bucket?.start && bucket?.end) onChange(bucket.start, bucket.end)
+  }
 
   return (
     <div className="space-y-1">
@@ -57,14 +78,14 @@ function NowHistogram({ buckets, value, maxHours, onChange }) {
           <div className="absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-dark-border" />
           <div
             className="pointer-events-none absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary"
-            style={{ left: `${archiveMax <= 1 ? 100 : ((rawValue - 1) / (archiveMax - 1)) * 100}%` }}
+            style={{ left: `${items.length <= 1 ? 100 : (selectedIndex / (items.length - 1)) * 100}%` }}
           />
           <input
             type="range"
-            min={1}
-            max={archiveMax}
-            value={rawValue}
-            onChange={(event) => onChange(archiveMax - parseInt(event.target.value, 10) + 1)}
+            min={0}
+            max={Math.max(0, items.length - 1)}
+            value={selectedIndex}
+            onChange={(event) => handleChange(event.target.value)}
             className="absolute inset-x-0 top-0 h-8 w-full cursor-pointer opacity-0"
           />
         </div>
@@ -167,7 +188,7 @@ export default function Now() {
   const [searchParams] = useSearchParams()
   const {
     fetchNowStories, nowStories, nowTotal, nowFacets, nowFilter,
-    nowLoading, nowError, setNowSearch, setNowRegion, setNowHoursBack, clearNowSearch,
+    nowLoading, nowError, setNowSearch, setNowRegion, setNowTimeWindow, clearNowSearch,
   } = useStore()
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [inputValue, setInputValue] = useState(nowFilter.query || '')
@@ -201,7 +222,8 @@ export default function Now() {
   const featured = nowStories[0]
   const rest = nowStories.slice(1)
   const archiveMaxHours = nowFacets.archive?.max_hours || 168
-  const hasNowFilters = Boolean(nowFilter.query || nowFilter.regionCode || nowFilter.hoursBack)
+  const hasTimeWindow = Boolean(nowFilter.timeStart && nowFilter.timeEnd)
+  const hasNowFilters = Boolean(nowFilter.query || nowFilter.regionCode || nowFilter.hoursBack || hasTimeWindow)
 
   return (
     <div className="app-shell">
@@ -282,9 +304,10 @@ export default function Now() {
               </div>
               <NowHistogram
                 buckets={nowFacets.histogram || []}
-                value={nowFilter.hoursBack}
+                timeStart={nowFilter.timeStart}
+                timeEnd={nowFilter.timeEnd}
                 maxHours={archiveMaxHours}
-                onChange={setNowHoursBack}
+                onChange={setNowTimeWindow}
               />
             </div>
 
@@ -293,6 +316,7 @@ export default function Now() {
                 {nowTotal} stories
                 {nowFilter.query ? ` for "${nowFilter.query}"` : ''}
                 {nowFilter.hoursBack ? ` from the last ${archiveLabel(nowFilter.hoursBack)}` : ''}
+                {hasTimeWindow ? ' in selected archive slice' : ''}
               </div>
             )}
             {nowError && <div className="border-l border-primary pl-3 text-sm text-red-500">{nowError}</div>}

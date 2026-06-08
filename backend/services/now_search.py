@@ -29,6 +29,15 @@ def _normalize_hours(value):
     return parsed if parsed > 0 else None
 
 
+def _normalize_datetime(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace('Z', '+00:00')).replace(tzinfo=None)
+    except (TypeError, ValueError):
+        return None
+
+
 def _story_corpus(story):
     return ' '.join([
         story.title or '',
@@ -126,6 +135,7 @@ def _histogram(stories, bucket_count=28):
     bucket_hours = max(1, max_hours / bucket_count)
     buckets = [
         {
+            'index': index,
             'start': (now - timedelta(hours=bucket_hours * (bucket_count - index))).isoformat(),
             'end': (now - timedelta(hours=bucket_hours * (bucket_count - index - 1))).isoformat(),
             'count': 0,
@@ -148,9 +158,19 @@ def _histogram(stories, bucket_count=28):
     }
 
 
-def search_now_stories(query='', region_code=None, hours_back=None, current_user_id=None, limit=30):
+def _story_time(story):
+    return story.published_at or story.fetched_at or datetime.min
+
+
+def _rank_filtered_stories(stories):
+    return sorted(stories, key=lambda story: (story.score, _story_time(story)), reverse=True)
+
+
+def search_now_stories(query='', region_code=None, hours_back=None, time_start=None, time_end=None, current_user_id=None, limit=30):
     normalized_region = _normalize_region(region_code)
     normalized_hours = _normalize_hours(hours_back)
+    normalized_start = _normalize_datetime(time_start)
+    normalized_end = _normalize_datetime(time_end)
     normalized_limit = _normalize_limit(limit)
 
     query_matches = _query_matched_stories(query)
@@ -167,12 +187,21 @@ def search_now_stories(query='', region_code=None, hours_back=None, current_user
     histogram = histogram_payload['buckets']
     max_hours = histogram_payload['max_hours']
     final_matches = region_matches
-    if normalized_hours:
+    if normalized_start and normalized_end:
+        start, end = sorted([normalized_start, normalized_end])
+        final_matches = [
+            story for story in region_matches
+            if start <= _story_time(story) < end
+        ]
+    elif normalized_hours:
         threshold = datetime.utcnow() - timedelta(hours=normalized_hours)
         final_matches = [
             story for story in region_matches
-            if (story.published_at or story.fetched_at or datetime.min) >= threshold
+            if _story_time(story) >= threshold
         ]
+
+    if (query or '').strip() or normalized_region or normalized_hours or (normalized_start and normalized_end):
+        final_matches = _rank_filtered_stories(final_matches)
 
     return {
         'stories': [story_to_dict(story, current_user_id) for story in final_matches[:normalized_limit]],
@@ -183,11 +212,15 @@ def search_now_stories(query='', region_code=None, hours_back=None, current_user
             'archive': {
                 'max_hours': max_hours,
                 'selected_hours': normalized_hours,
+                'selected_start': normalized_start.isoformat() if normalized_start else None,
+                'selected_end': normalized_end.isoformat() if normalized_end else None,
             },
         },
         'applied_filters': {
             'query': (query or '').strip(),
             'region_code': normalized_region,
             'hours_back': normalized_hours,
+            'time_start': normalized_start.isoformat() if normalized_start else None,
+            'time_end': normalized_end.isoformat() if normalized_end else None,
         },
     }
