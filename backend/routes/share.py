@@ -10,7 +10,15 @@ share_bp = Blueprint('wff_share', __name__)
 
 
 def _base_path():
-    return (request.script_root or '').rstrip('/')
+    script_root = (request.script_root or '').rstrip('/')
+    if script_root:
+        return script_root
+    path = request.path or ''
+    for marker in ('/api/share/', '/share/'):
+        marker_index = path.find(marker)
+        if marker_index > 0:
+            return path[:marker_index].rstrip('/')
+    return ''
 
 
 def _absolute_url(path):

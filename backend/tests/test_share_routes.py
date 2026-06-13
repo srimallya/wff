@@ -7,14 +7,14 @@ from backend.models import Essay, NowSource, NowStory, User, db
 from backend.routes.share import share_bp
 
 
-def make_app():
+def make_app(share_prefix=''):
     app = Flask(__name__)
     app.config['TESTING'] = True
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     app.config['SQLALCHEMY_BINDS'] = {'wff': 'sqlite:///:memory:'}
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     db.init_app(app)
-    app.register_blueprint(share_bp)
+    app.register_blueprint(share_bp, url_prefix=share_prefix)
     with app.app_context():
         db.create_all()
     return app
@@ -88,6 +88,33 @@ class ShareRoutesTest(unittest.TestCase):
         self.assertEqual(data['kind'], 'post')
         self.assertEqual(data['title'], 'Civic Futures')
         self.assertEqual(data['app_path'], f'/posts/{self.essay_id}')
+
+    def test_mounted_share_page_keeps_wff_prefix_in_links(self):
+        app = make_app('/wff')
+        client = app.test_client()
+        with app.app_context():
+            user = User(username='mounted', real_username='mounted', birthdate='1990-01-01', is_bengali=True, is_guest=False)
+            db.session.add(user)
+            db.session.flush()
+            essay = Essay(
+                user_id=user.id,
+                title='Mounted Futures',
+                content='This mounted public foresight post is long enough to render public metadata.',
+                country='Global',
+                country_code='GLOBAL',
+                look_ahead_months=120,
+                target_calendar_year=2036,
+            )
+            db.session.add(essay)
+            db.session.commit()
+            essay_id = essay.id
+
+        response = client.get(f'/wff/share/posts/{essay_id}', base_url='https://thetrustcommons.com')
+
+        self.assertEqual(response.status_code, 200)
+        body = response.get_data(as_text=True)
+        self.assertIn(f'https://thetrustcommons.com/wff/share/posts/{essay_id}', body)
+        self.assertIn(f'https://thetrustcommons.com/wff/posts/{essay_id}', body)
 
 
 if __name__ == '__main__':
