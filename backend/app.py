@@ -19,6 +19,7 @@ from backend.routes.now import now_bp
 from backend.routes.notifications import notifications_bp
 from backend.routes.proposals import proposals_bp
 from backend.routes.recommendations import recommendations_bp
+from backend.routes.share import share_bp
 from backend.services.account_cleanup import cleanup_inactive_accounts
 from backend.services.now_pipeline import ensure_default_sources
 from backend.services.now_scheduler import start_now_refresh_scheduler
@@ -72,6 +73,7 @@ def create_app():
     app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
     app.register_blueprint(proposals_bp, url_prefix='/api/proposals')
     app.register_blueprint(recommendations_bp, url_prefix='/api/recommendations')
+    app.register_blueprint(share_bp)
 
     with app.app_context():
         db.create_all()

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore } from '../store/zustandStore'
 import { Icon } from '../components/Icons'
 import BottomNav from '../components/BottomNav'
+import { copyTextToClipboard, nowShareUrl } from '../shareLinks'
 
 function relativeTime(value) {
   if (!value) return ''
@@ -106,6 +107,7 @@ function NowStoryCard({ story }) {
     upvotes: story.upvotes || 0,
     downvotes: story.downvotes || 0,
   })
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     setUserVote(story.user_vote || null)
@@ -129,6 +131,14 @@ function NowStoryCard({ story }) {
   const openStory = () => {
     const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
     window.location.href = `${basePath}/browser?url=${encodeURIComponent(story.url)}`
+  }
+
+  const shareStory = async () => {
+    const didCopy = await copyTextToClipboard(nowShareUrl(story.id))
+    if (didCopy) {
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1600)
+    }
   }
 
   return (
@@ -172,9 +182,14 @@ function NowStoryCard({ story }) {
             <p className="now-story-summary">{story.summary}</p>
           </div>
           <div className="flex items-center justify-between gap-4 pt-1 text-xs text-gray-600">
-            <button type="button" onClick={openStory} className="swiss-action">
-              Open
-            </button>
+            <div className="flex items-center gap-4">
+              <button type="button" onClick={openStory} className="swiss-action">
+                Open
+              </button>
+              <button type="button" onClick={shareStory} className="swiss-action">
+                {copied ? 'Copied' : 'Share'}
+              </button>
+            </div>
             <span>{votes.upvotes} ▲ {votes.downvotes} ▼</span>
           </div>
         </div>

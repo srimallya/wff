@@ -1,3 +1,6 @@
+import { useEffect, useState } from 'react'
+import { normalizeWffSharePath, resolveWffShareUrl } from '../shareLinks'
+
 const URL_PATTERN = /\b((?:https?:\/\/|www\.)[^\s<>"']+)/gi
 const TRAILING_PUNCTUATION = /[),.!?:;]+$/
 
@@ -24,6 +27,40 @@ function splitTrailingPunctuation(value) {
   return [url, trailing]
 }
 
+function WffShareAnchor({ urlText, normalizedUrl, index }) {
+  const [preview, setPreview] = useState(null)
+  const sharePath = normalizeWffSharePath(normalizedUrl)
+
+  useEffect(() => {
+    let cancelled = false
+    if (!sharePath) return undefined
+    resolveWffShareUrl(normalizedUrl)
+      .then((data) => {
+        if (!cancelled) setPreview(data)
+      })
+      .catch(() => {
+        if (!cancelled) setPreview(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [normalizedUrl, sharePath])
+
+  const label = preview?.title || urlText
+  const href = sharePath ? normalizedUrl : appBrowserPath(normalizedUrl)
+
+  return (
+    <a
+      key={`${index}-${urlText}`}
+      href={href}
+      onClick={(event) => event.stopPropagation()}
+      className="text-primary underline decoration-primary/40 underline-offset-2"
+    >
+      {label}
+    </a>
+  )
+}
+
 export default function RichText({ text, className = '' }) {
   const content = text || ''
   const nodes = []
@@ -36,16 +73,7 @@ export default function RichText({ text, className = '' }) {
 
     const [urlText, trailing] = splitTrailingPunctuation(matchedText)
     const normalizedUrl = normalizeUrl(urlText)
-    nodes.push(
-      <a
-        key={`${index}-${urlText}`}
-        href={appBrowserPath(normalizedUrl)}
-        onClick={(event) => event.stopPropagation()}
-        className="text-primary underline decoration-primary/40 underline-offset-2"
-      >
-        {urlText}
-      </a>
-    )
+    nodes.push(<WffShareAnchor key={`${index}-${urlText}`} urlText={urlText} normalizedUrl={normalizedUrl} index={index} />)
     if (trailing) nodes.push(trailing)
     lastIndex = index + matchedText.length
   }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/zustandStore'
 import RichText from './RichText'
+import { copyTextToClipboard, postShareUrl } from '../shareLinks'
 
 export default function EssayCard({ essay }) {
   const navigate = useNavigate()
@@ -12,6 +13,7 @@ export default function EssayCard({ essay }) {
     downvotes: essay.downvotes || 0,
   })
   const [userVote, setUserVote] = useState(essay.user_vote || null)
+  const [copied, setCopied] = useState(false)
 
   const handleVote = async (event, value) => {
     event.stopPropagation()
@@ -22,6 +24,17 @@ export default function EssayCard({ essay }) {
       setLocalScore(result.score)
       setLocalVotes({ upvotes: result.upvotes, downvotes: result.downvotes })
       setUserVote(result.user_vote)
+    }
+  }
+
+  const handleShare = async (event) => {
+    event.stopPropagation()
+    if (essay.is_pending) return
+    const url = postShareUrl(essay.id)
+    const didCopy = await copyTextToClipboard(url)
+    if (didCopy) {
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1600)
     }
   }
 
@@ -84,7 +97,15 @@ export default function EssayCard({ essay }) {
           <p className="text-sm leading-relaxed whitespace-pre-wrap">
             <RichText text={essay.content} />
           </p>
-          <div className="flex items-center justify-end text-xs text-gray-600">
+          <div className="flex items-center justify-between gap-4 text-xs text-gray-600">
+            <button
+              type="button"
+              onClick={handleShare}
+              disabled={essay.is_pending}
+              className="swiss-action disabled:opacity-30"
+            >
+              {copied ? 'Copied' : 'Share'}
+            </button>
             <span>{localVotes.upvotes} ▲ {localVotes.downvotes} ▼</span>
             <span className="ml-3">{essay.comment_count || 0} comments</span>
           </div>
