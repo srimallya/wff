@@ -11,6 +11,7 @@
 ### Now
 
 - Added focused Now story views at `/now?story=<id>` with story comments for registered writing accounts.
+- Improved Now semantic search ranking so title/summary relevance beats unrelated scraped-page boilerplate and semantic relevance survives region/time filtering.
 
 ## v1.4.4
 

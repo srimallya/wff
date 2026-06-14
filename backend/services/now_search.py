@@ -1,6 +1,7 @@
 from collections import Counter
 from datetime import datetime, timedelta
 import json
+import re
 
 from backend.models import NowStory, db
 from backend.services.now_pipeline import story_to_dict
@@ -49,7 +50,71 @@ def _story_corpus(story):
     ]).lower()
 
 
-def _semantic_matches(query, stories, existing_ids, min_similarity=0.22):
+def _primary_story_corpus(story):
+    return ' '.join([
+        story.title or '',
+        story.summary or '',
+        story.excerpt or '',
+        story.region or '',
+        story.source_name or '',
+    ]).lower()
+
+
+def _semantic_story_corpus(story):
+    return ' '.join([
+        story.title or '',
+        story.summary or '',
+        story.excerpt or '',
+        story.region or '',
+        story.source_name or '',
+        (story.original_content or '')[:1200],
+    ])
+
+
+def _query_terms(query):
+    return [term for term in re.findall(r'[a-z0-9][a-z0-9\-]+', (query or '').lower()) if len(term) > 1]
+
+
+def _lexical_score(query, story):
+    normalized_query = (query or '').strip().lower()
+    terms = _query_terms(normalized_query)
+    if not normalized_query or not terms:
+        return 0.0
+
+    title = (story.title or '').lower()
+    summary = (story.summary or '').lower()
+    excerpt = (story.excerpt or '').lower()
+    metadata = f'{story.region or ""} {story.source_name or ""}'.lower()
+    original = ((story.original_content or '')[:1200]).lower()
+    primary = f'{title} {summary} {excerpt} {metadata}'
+
+    score = 0.0
+    if normalized_query in title:
+        score += 12.0
+    elif normalized_query in primary:
+        score += 8.0
+    elif normalized_query in original:
+        score += 0.5
+
+    for term in terms:
+        if term in title:
+            score += 5.0
+        elif term in summary:
+            score += 3.0
+        elif term in excerpt:
+            score += 2.0
+        elif term in metadata:
+            score += 1.0
+        elif term in original:
+            score += 0.15
+
+    matched_primary_terms = sum(1 for term in terms if term in primary)
+    if len(terms) > 1 and matched_primary_terms == len(terms):
+        score += 4.0
+    return score
+
+
+def _semantic_scores(query, stories, min_similarity=0.22):
     try:
         import numpy as np
         from backend.services.embedding import get_embedding, embedding_from_json, cosine_similarity
@@ -60,8 +125,6 @@ def _semantic_matches(query, stories, existing_ids, min_similarity=0.22):
 
     scored = []
     for story in stories:
-        if story.id in existing_ids:
-            continue
         emb = None
         if story.embedding_json:
             try:
@@ -70,7 +133,7 @@ def _semantic_matches(query, stories, existing_ids, min_similarity=0.22):
                 emb = None
         if emb is None:
             try:
-                emb = np.array(get_embedding(_story_corpus(story)), dtype=np.float32)
+                emb = np.array(get_embedding(_semantic_story_corpus(story)), dtype=np.float32)
                 story.embedding_json = json.dumps(emb.tolist())
             except Exception:
                 continue
@@ -87,8 +150,7 @@ def _semantic_matches(query, stories, existing_ids, min_similarity=0.22):
         except Exception:
             db.session.rollback()
 
-    scored.sort(key=lambda item: (item[0], item[1].published_at or item[1].fetched_at or datetime.min), reverse=True)
-    return [story for _, story in scored]
+    return scored
 
 
 def _query_matched_stories(query):
@@ -97,13 +159,33 @@ def _query_matched_stories(query):
     if not normalized_query:
         return stories
 
-    terms = [term for term in normalized_query.split() if len(term) > 1] or [normalized_query]
-    lexical = [
-        story for story in stories
-        if all(term in _story_corpus(story) for term in terms)
-    ]
-    lexical_ids = {story.id for story in lexical}
-    return lexical + _semantic_matches(normalized_query, stories, lexical_ids)
+    scores = {}
+    for story in stories:
+        score = _lexical_score(normalized_query, story)
+        if score >= 1.0:
+            scores[story.id] = {'story': story, 'score': score, 'semantic': 0.0}
+
+    for similarity, story in _semantic_scores(normalized_query, stories):
+        item = scores.setdefault(story.id, {'story': story, 'score': 0.0, 'semantic': 0.0})
+        item['semantic'] = max(item['semantic'], similarity)
+        item['score'] += similarity * 5.0
+
+    ranked = sorted(
+        scores.values(),
+        key=lambda item: (
+            item['score'],
+            item['semantic'],
+            item['story'].score,
+            _story_time(item['story']),
+        ),
+        reverse=True,
+    )
+    for item in ranked:
+        try:
+            setattr(item['story'], '_now_search_relevance', item['score'])
+        except Exception:
+            pass
+    return [item['story'] for item in ranked]
 
 
 def _region_facets(stories):
@@ -162,7 +244,19 @@ def _story_time(story):
     return story.published_at or story.fetched_at or datetime.min
 
 
-def _rank_filtered_stories(stories):
+def _rank_filtered_stories(stories, query=''):
+    normalized_query = (query or '').strip().lower()
+    if normalized_query:
+        return sorted(
+            stories,
+            key=lambda story: (
+                getattr(story, '_now_search_relevance', 0.0),
+                _lexical_score(normalized_query, story),
+                story.score,
+                _story_time(story),
+            ),
+            reverse=True,
+        )
     return sorted(stories, key=lambda story: (story.score, _story_time(story)), reverse=True)
 
 
@@ -201,7 +295,7 @@ def search_now_stories(query='', region_code=None, hours_back=None, time_start=N
         ]
 
     if (query or '').strip() or normalized_region or normalized_hours or (normalized_start and normalized_end):
-        final_matches = _rank_filtered_stories(final_matches)
+        final_matches = _rank_filtered_stories(final_matches, query)
 
     return {
         'stories': [story_to_dict(story, current_user_id) for story in final_matches[:normalized_limit]],

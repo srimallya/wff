@@ -158,6 +158,102 @@ class NowPipelineTest(unittest.TestCase):
         story = self.client.get(f'/now/{self.story_id}').get_json()
         self.assertEqual(story['comment_count'], 1)
 
+    def test_now_search_prioritizes_primary_fields_over_scraped_boilerplate(self):
+        with self.app.app_context():
+            source = NowSource.query.filter_by(name='BBC World').first()
+            exact = NowStory(
+                source_id=source.id,
+                source_name=source.name,
+                source_url=source.url,
+                title='Anthropic releases new AI safety report',
+                url='https://example.com/anthropic-primary',
+                canonical_url='https://example.com/anthropic-primary',
+                summary='Anthropic published an AI safety report about model evaluations.',
+                excerpt='Anthropic AI safety report.',
+                original_content='Primary article body about model evaluations.',
+                region='United States',
+                region_code='US',
+                published_at=datetime.utcnow() - timedelta(days=5),
+                fetched_at=datetime.utcnow(),
+            )
+            polluted = NowStory(
+                source_id=source.id,
+                source_name='HT India',
+                source_url=source.url,
+                title='TMC crisis deepens as rebel MLAs meet',
+                url='https://example.com/polluted-politics',
+                canonical_url='https://example.com/polluted-politics',
+                summary='A regional party crisis deepened after rebel lawmakers met.',
+                excerpt='A regional political dispute.',
+                original_content='Article sidebar: Anthropic OpenAI Google technology market links.',
+                region='India',
+                region_code='IND',
+                published_at=datetime.utcnow() - timedelta(days=1),
+                fetched_at=datetime.utcnow(),
+            )
+            db.session.add_all([exact, polluted])
+            db.session.commit()
+
+        response = self.client.get('/now?q=Anthropic')
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+
+        self.assertGreaterEqual(data['total'], 1)
+        self.assertEqual(data['stories'][0]['title'], 'Anthropic releases new AI safety report')
+        self.assertNotIn('TMC crisis deepens as rebel MLAs meet', [story['title'] for story in data['stories']])
+
+    def test_now_search_keeps_semantic_relevance_after_filtering(self):
+        with self.app.app_context():
+            source = NowSource.query.filter_by(name='BBC World').first()
+            close = NowStory(
+                source_id=source.id,
+                source_name=source.name,
+                source_url=source.url,
+                title='Heavy rain adaptation plan for city hospitals',
+                url='https://example.com/rain-adaptation',
+                canonical_url='https://example.com/rain-adaptation',
+                summary='Hospitals prepare flood resilience measures.',
+                excerpt='Flood resilience planning.',
+                original_content='City adaptation and hospital resilience.',
+                region='India',
+                region_code='IND',
+                published_at=datetime.utcnow() - timedelta(hours=3),
+                fetched_at=datetime.utcnow(),
+            )
+            noisy = NowStory(
+                source_id=source.id,
+                source_name=source.name,
+                source_url=source.url,
+                title='Cinema festival opens downtown',
+                url='https://example.com/cinema',
+                canonical_url='https://example.com/cinema',
+                summary='A cultural festival opens with public screenings.',
+                excerpt='Cinema festival.',
+                original_content='Entertainment listings.',
+                region='India',
+                region_code='IND',
+                published_at=datetime.utcnow() - timedelta(hours=1),
+                fetched_at=datetime.utcnow(),
+            )
+            db.session.add_all([close, noisy])
+            db.session.commit()
+
+        def fake_embedding(text):
+            lowered = text.lower()
+            if 'monsoon readiness' in lowered:
+                return [1.0, 0.0]
+            if 'flood resilience' in lowered or 'rain adaptation' in lowered:
+                return [0.95, 0.05]
+            return [0.0, 1.0]
+
+        with patch('backend.services.embedding.get_embedding', side_effect=fake_embedding):
+            response = self.client.get('/now?q=monsoon%20readiness&region_code=IND')
+
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertGreaterEqual(data['total'], 1)
+        self.assertEqual(data['stories'][0]['title'], 'Heavy rain adaptation plan for city hospitals')
+
     def test_refresh_dedupes_url_and_stores_summary_region_and_raw_content(self):
         def fake_records(source):
             return [
