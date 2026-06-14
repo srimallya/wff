@@ -203,6 +203,7 @@ class NowStory(db.Model):
 
     source = db.relationship('backend.models.NowSource', foreign_keys=[source_id])
     votes = db.relationship('backend.models.NowStoryVote', backref='story', lazy=True, cascade='all, delete-orphan')
+    comments = db.relationship('backend.models.NowStoryComment', backref='story', lazy=True, cascade='all, delete-orphan')
 
     @property
     def upvotes(self):
@@ -229,6 +230,18 @@ class NowStoryVote(db.Model):
     user = db.relationship('backend.models.User', foreign_keys=[user_id])
 
     __table_args__ = (db.UniqueConstraint('user_id', 'story_id', name='unique_user_now_story_vote'),)
+
+class NowStoryComment(db.Model):
+    __bind_key__ = WFF_BIND_KEY
+    __tablename__ = 'wff_now_story_comment'
+
+    id = db.Column(db.Integer, primary_key=True)
+    story_id = db.Column(db.Integer, db.ForeignKey('wff_now_story.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('wff_user.id'), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('backend.models.User', foreign_keys=[user_id])
 
 class Comment(db.Model):
     __bind_key__ = WFF_BIND_KEY

@@ -130,6 +130,34 @@ class NowPipelineTest(unittest.TestCase):
         self.assertEqual(data['upvotes'], 1)
         self.assertEqual(data['user_vote'], 1)
 
+    def test_now_story_comments_require_registered_writer_and_list_in_order(self):
+        guest = User(username='guest', is_bengali=False, is_guest=True)
+        with self.app.app_context():
+            db.session.add(guest)
+            db.session.commit()
+
+        rejected = self.client.post(f'/now/{self.story_id}/comments', json={
+            'username': 'guest',
+            'content': 'Guest comment',
+        })
+        self.assertEqual(rejected.status_code, 403)
+
+        created = self.client.post(f'/now/{self.story_id}/comments', json={
+            'username': 'reader',
+            'content': 'This story connects to regional resilience planning.',
+        })
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(created.get_json()['username'], 'reader')
+
+        response = self.client.get(f'/now/{self.story_id}/comments')
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(data['total'], 1)
+        self.assertEqual(data['comments'][0]['content'], 'This story connects to regional resilience planning.')
+
+        story = self.client.get(f'/now/{self.story_id}').get_json()
+        self.assertEqual(story['comment_count'], 1)
+
     def test_refresh_dedupes_url_and_stores_summary_region_and_raw_content(self):
         def fake_records(source):
             return [

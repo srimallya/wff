@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 
-from backend.models import NowStory, NowStoryVote, User, db
+from backend.models import NowStory, NowStoryComment, NowStoryVote, User, db
 from backend.services.now_pipeline import refresh_now_stories, story_to_dict
 from backend.services.now_search import search_now_stories
 from backend.services.realtime import emit_global
@@ -14,6 +14,16 @@ def _current_user_id_from_request():
         return int(request.args.get('current_user_id') or 0) or None
     except (TypeError, ValueError):
         return None
+
+
+def _now_comment_to_dict(comment):
+    return {
+        'id': comment.id,
+        'story_id': comment.story_id,
+        'username': comment.user.username if comment.user else 'Unknown',
+        'content': comment.content,
+        'created_at': comment.created_at.isoformat() if comment.created_at else None,
+    }
 
 
 @now_bp.route('', methods=['GET'])
@@ -101,3 +111,41 @@ def vote_now_story(story_id):
     }
     emit_global('now_story_voted', payload)
     return jsonify(payload)
+
+
+@now_bp.route('/<int:story_id>/comments', methods=['GET'])
+def get_now_story_comments(story_id):
+    NowStory.query.get_or_404(story_id)
+    comments = (
+        NowStoryComment.query
+        .filter_by(story_id=story_id)
+        .order_by(NowStoryComment.created_at.asc(), NowStoryComment.id.asc())
+        .all()
+    )
+    return jsonify({
+        'comments': [_now_comment_to_dict(comment) for comment in comments],
+        'total': len(comments),
+    })
+
+
+@now_bp.route('/<int:story_id>/comments', methods=['POST'])
+def create_now_story_comment(story_id):
+    data = request.get_json(silent=True) or {}
+    story = NowStory.query.get_or_404(story_id)
+    username = data.get('username')
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'error': 'Valid user required'}), 400
+    if user.is_guest or not user.is_bengali or not user.birthdate or not user.password_hash:
+        return jsonify({'error': 'Comments require a registered writing account'}), 403
+
+    content = str(data.get('content') or '').strip()
+    if len(content) < 2:
+        return jsonify({'error': 'Comment must be at least 2 characters'}), 400
+    if len(content) > 2000:
+        return jsonify({'error': 'Comment must be at most 2000 characters'}), 400
+
+    comment = NowStoryComment(story_id=story.id, user_id=user.id, content=content)
+    db.session.add(comment)
+    db.session.commit()
+    return jsonify(_now_comment_to_dict(comment)), 201

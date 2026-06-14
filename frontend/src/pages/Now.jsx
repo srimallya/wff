@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore } from '../store/zustandStore'
+import { API_BASE, apiFetch } from '../api'
 import { Icon } from '../components/Icons'
 import BottomNav from '../components/BottomNav'
+import RichText from '../components/RichText'
 import { copyTextToClipboard, nowShareUrl } from '../shareLinks'
 
 function relativeTime(value) {
@@ -99,7 +101,7 @@ function NowHistogram({ buckets, timeStart, timeEnd, maxHours, onChange }) {
   )
 }
 
-function NowStoryCard({ story }) {
+function NowStoryCard({ story, focused = false, onDiscuss }) {
   const { user, voteNowStory } = useStore()
   const [userVote, setUserVote] = useState(story.user_vote || null)
   const [votes, setVotes] = useState({
@@ -142,7 +144,7 @@ function NowStoryCard({ story }) {
   }
 
   return (
-    <article className="now-story">
+    <article id={`now-story-${story.id}`} className={`now-story ${focused ? 'now-story-focused' : ''}`}>
       <div className="flex gap-4">
         <div className="flex flex-col items-center gap-1 pt-1">
           <button
@@ -189,8 +191,13 @@ function NowStoryCard({ story }) {
               <button type="button" onClick={shareStory} className="swiss-action">
                 {copied ? 'Copied' : 'Share'}
               </button>
+              {!focused && (
+                <button type="button" onClick={() => onDiscuss?.(story.id)} className="swiss-action">
+                  Discuss
+                </button>
+              )}
             </div>
-            <span>{votes.upvotes} ▲ {votes.downvotes} ▼</span>
+            <span>{votes.upvotes} ▲ {votes.downvotes} ▼ · {story.comment_count || 0} comments</span>
           </div>
         </div>
       </div>
@@ -198,15 +205,78 @@ function NowStoryCard({ story }) {
   )
 }
 
+function NowComments({ story, user, comments, commentText, setCommentText, loading, error, submitting, onSubmit }) {
+  return (
+    <section className="space-y-4 border-t border-dark-border pt-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-medium">Comments</h2>
+        <span className="text-sm text-gray-500">{comments.length}</span>
+      </div>
+
+      {user.canPost ? (
+        <form onSubmit={onSubmit} className="space-y-3">
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <textarea
+            value={commentText}
+            onChange={(event) => setCommentText(event.target.value.slice(0, 2000))}
+            placeholder={`Comment on "${story.title}"...`}
+            rows={3}
+            className="w-full resize-none border-0 border-b px-0 py-3 text-sm focus:border-primary focus:outline-none"
+          />
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">{commentText.length}/2000</span>
+            <button type="submit" disabled={submitting || commentText.trim().length < 2} className="swiss-action disabled:opacity-30">
+              {submitting ? 'Posting' : 'Post comment'}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="border-t border-dark-border py-4 text-sm text-gray-500">
+          Comments require a registered writing account.
+        </div>
+      )}
+
+      {loading ? (
+        <div className="py-5 text-center text-sm text-gray-500">Loading comments...</div>
+      ) : comments.length === 0 ? (
+        <div className="border-t border-dark-border py-5 text-center text-sm text-gray-500">No comments yet</div>
+      ) : (
+        <div className="space-y-0">
+          {comments.map((comment) => (
+            <div key={comment.id} className="border-t border-dark-border py-4">
+              <div className="mb-2 text-xs text-gray-500">
+                <span className="font-semibold text-primary">{comment.username}</span>
+                <span className="mx-2">•</span>
+                <span>{new Date(comment.created_at).toLocaleString()}</span>
+              </div>
+              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                <RichText text={comment.content} />
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
 export default function Now() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const {
-    fetchNowStories, nowStories, nowTotal, nowFacets, nowFilter,
+    user, fetchNowStories, nowStories, nowTotal, nowFacets, nowFilter,
     nowLoading, nowError, setNowSearch, setNowRegion, setNowTimeWindow, clearNowSearch,
   } = useStore()
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [inputValue, setInputValue] = useState(nowFilter.query || '')
+  const [focusedStory, setFocusedStory] = useState(null)
+  const [focusedLoading, setFocusedLoading] = useState(false)
+  const [comments, setComments] = useState([])
+  const [commentsLoading, setCommentsLoading] = useState(false)
+  const [commentText, setCommentText] = useState('')
+  const [commentError, setCommentError] = useState('')
+  const [submittingComment, setSubmittingComment] = useState(false)
+  const selectedStoryId = searchParams.get('story')
 
   useEffect(() => {
     fetchNowStories()
@@ -215,6 +285,52 @@ export default function Now() {
   useEffect(() => {
     if (searchParams.get('story')) setFiltersOpen(false)
   }, [searchParams])
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadFocusedStory(storyId) {
+      if (!storyId) {
+        setFocusedStory(null)
+        setComments([])
+        setCommentText('')
+        setCommentError('')
+        return
+      }
+      setFocusedLoading(true)
+      setCommentsLoading(true)
+      setCommentError('')
+      try {
+        const userParam = user.id ? `?current_user_id=${encodeURIComponent(user.id)}` : ''
+        const [storyRes, commentsRes] = await Promise.all([
+          apiFetch(`${API_BASE}/now/${storyId}${userParam}`),
+          apiFetch(`${API_BASE}/now/${storyId}/comments`),
+        ])
+        const storyData = await storyRes.json()
+        const commentsData = await commentsRes.json()
+        if (!storyRes.ok) throw new Error(storyData.error || 'Story could not be loaded')
+        if (!commentsRes.ok) throw new Error(commentsData.error || 'Comments could not be loaded')
+        if (!cancelled) {
+          setFocusedStory(storyData)
+          setComments(commentsData.comments || [])
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setFocusedStory(null)
+          setComments([])
+          setCommentError(error.message || 'Story could not be loaded')
+        }
+      } finally {
+        if (!cancelled) {
+          setFocusedLoading(false)
+          setCommentsLoading(false)
+        }
+      }
+    }
+    loadFocusedStory(selectedStoryId)
+    return () => {
+      cancelled = true
+    }
+  }, [selectedStoryId, user.id])
 
   const handleSubmit = (event) => {
     event.preventDefault()
@@ -232,6 +348,37 @@ export default function Now() {
       return
     }
     navigate('/feed')
+  }
+
+  const openDiscussion = (storyId) => {
+    navigate(`/now?story=${encodeURIComponent(storyId)}`)
+  }
+
+  const clearFocusedStory = () => {
+    navigate('/now')
+  }
+
+  const submitNowComment = async (event) => {
+    event.preventDefault()
+    if (!user.username || !focusedStory || !commentText.trim()) return
+    setSubmittingComment(true)
+    setCommentError('')
+    try {
+      const res = await apiFetch(`${API_BASE}/now/${focusedStory.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user.username, content: commentText.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Comment failed')
+      setComments((items) => [...items, data])
+      setFocusedStory((current) => current ? { ...current, comment_count: (current.comment_count || 0) + 1 } : current)
+      setCommentText('')
+    } catch (error) {
+      setCommentError(error.message || 'Comment failed')
+    } finally {
+      setSubmittingComment(false)
+    }
   }
 
   const featured = nowStories[0]
@@ -276,8 +423,8 @@ export default function Now() {
       <main className="max-w-2xl mx-auto px-5 py-6">
         <section
           id="now-discovery-controls"
-          className={`feed-discovery-panel ${filtersOpen ? 'feed-discovery-panel-open now-discovery-panel-open' : ''}`}
-          aria-hidden={!filtersOpen}
+          className={`feed-discovery-panel ${filtersOpen && !selectedStoryId ? 'feed-discovery-panel-open now-discovery-panel-open' : ''}`}
+          aria-hidden={!filtersOpen || Boolean(selectedStoryId)}
         >
           <div className="feed-discovery-panel-inner space-y-7 pb-7">
             <form onSubmit={handleSubmit} className="relative">
@@ -338,7 +485,7 @@ export default function Now() {
           </div>
         </section>
 
-        {!filtersOpen && hasNowFilters && (
+        {!selectedStoryId && !filtersOpen && hasNowFilters && (
           <div className="feed-search-summary mt-7">
             <span>{nowTotal} filtered stories</span>
             <div className="flex items-center gap-4">
@@ -348,16 +495,40 @@ export default function Now() {
           </div>
         )}
 
-        <div className={`${filtersOpen || hasNowFilters ? 'mt-7' : ''}`}>
-          {nowLoading && nowStories.length === 0 ? (
+        <div className={`${filtersOpen || hasNowFilters || selectedStoryId ? 'mt-7' : ''}`}>
+          {selectedStoryId ? (
+            focusedLoading ? (
+              <div className="py-12 text-center text-sm text-gray-500">Loading story...</div>
+            ) : focusedStory ? (
+              <div className="space-y-7">
+                <button type="button" onClick={clearFocusedStory} className="swiss-action text-sm">
+                  Back to Now
+                </button>
+                <NowStoryCard story={focusedStory} focused />
+                <NowComments
+                  story={focusedStory}
+                  user={user}
+                  comments={comments}
+                  commentText={commentText}
+                  setCommentText={setCommentText}
+                  loading={commentsLoading}
+                  error={commentError}
+                  submitting={submittingComment}
+                  onSubmit={submitNowComment}
+                />
+              </div>
+            ) : (
+              <div className="border-l border-primary pl-3 text-sm text-red-600">{commentError || 'Story could not be loaded'}</div>
+            )
+          ) : nowLoading && nowStories.length === 0 ? (
             <div className="py-12 text-center text-sm text-gray-500">Loading...</div>
           ) : nowStories.length === 0 ? (
             <div className="py-16 text-center text-sm text-gray-500">No current stories yet</div>
           ) : (
             <div>
-              <NowStoryCard story={featured} />
+              <NowStoryCard story={featured} onDiscuss={openDiscussion} />
               <div className="space-y-0">
-                {rest.map((story) => <NowStoryCard key={story.id} story={story} />)}
+                {rest.map((story) => <NowStoryCard key={story.id} story={story} onDiscuss={openDiscussion} />)}
               </div>
             </div>
           )}

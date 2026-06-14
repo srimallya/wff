@@ -312,6 +312,10 @@ input[type="range"] {
   padding: 1.25rem 0;
 }
 
+.now-story-focused {
+  border-top-color: var(--wff-primary);
+}
+
 .now-story-title {
   color: var(--wff-text-strong);
   font-size: 1.03rem;

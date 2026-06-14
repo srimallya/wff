@@ -103,6 +103,20 @@ def ensure_schema():
             )
         ''')
 
+    if 'wff_now_story_comment' not in table_names:
+        execute('''
+            CREATE TABLE wff_now_story_comment (
+                id INTEGER NOT NULL PRIMARY KEY,
+                story_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                created_at DATETIME,
+                FOREIGN KEY(story_id) REFERENCES "wff_now_story" (id),
+                FOREIGN KEY(user_id) REFERENCES "wff_user" (id)
+            )
+        ''')
+        execute('CREATE INDEX ix_wff_now_story_comment_story_created ON wff_now_story_comment (story_id, created_at)')
+
     if 'wff_notification' not in table_names:
         execute('''
             CREATE TABLE wff_notification (

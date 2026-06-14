@@ -34,6 +34,15 @@ export function normalizeWffSharePath(rawUrl) {
   return /^\/share\/(?:posts|now)\/\d+$/.test(path) ? path : null
 }
 
+export function appPathForWffShare(rawUrl) {
+  const sharePath = normalizeWffSharePath(rawUrl)
+  if (!sharePath) return null
+  const [, , kind, id] = sharePath.split('/')
+  if (kind === 'posts') return `${appBasePath()}/posts/${id}`
+  if (kind === 'now') return `${appBasePath()}/now?story=${id}`
+  return null
+}
+
 export async function resolveWffShareUrl(rawUrl) {
   if (!normalizeWffSharePath(rawUrl)) return null
   const response = await fetch(`${API_BASE}/share/resolve?url=${encodeURIComponent(rawUrl)}`, {

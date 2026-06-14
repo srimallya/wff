@@ -26,4 +26,12 @@ describe('WFF share links', () => {
     expect(normalizeWffSharePath('https://other.test/share/posts/42')).toBeNull()
     expect(normalizeWffSharePath('https://example.test/posts/42')).toBeNull()
   })
+
+  it('maps same-origin WFF share URLs to app paths', async () => {
+    const { appPathForWffShare } = await loadShareLinks()
+
+    expect(appPathForWffShare('https://example.test/share/posts/42')).toBe('/posts/42')
+    expect(appPathForWffShare('https://example.test/share/now/9')).toBe('/now?story=9')
+    expect(appPathForWffShare('https://example.test/now?story=9')).toBeNull()
+  })
 })

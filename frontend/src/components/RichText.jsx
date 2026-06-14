@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { normalizeWffSharePath, resolveWffShareUrl } from '../shareLinks'
+import { appPathForWffShare, normalizeWffSharePath, resolveWffShareUrl } from '../shareLinks'
 
 const URL_PATTERN = /\b((?:https?:\/\/|www\.)[^\s<>"']+)/gi
 const TRAILING_PUNCTUATION = /[),.!?:;]+$/
@@ -47,7 +47,7 @@ function WffShareAnchor({ urlText, normalizedUrl, index }) {
   }, [normalizedUrl, sharePath])
 
   const label = preview?.title || urlText
-  const href = sharePath ? normalizedUrl : appBrowserPath(normalizedUrl)
+  const href = appPathForWffShare(normalizedUrl) || appBrowserPath(normalizedUrl)
 
   return (
     <a

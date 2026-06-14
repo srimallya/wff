@@ -370,6 +370,7 @@ def story_to_dict(story, current_user_id=None):
         'downvotes': story.downvotes,
         'score': story.score,
         'user_vote': user_vote,
+        'comment_count': len(story.comments),
     }
 
 

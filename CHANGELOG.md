@@ -6,7 +6,11 @@
 
 - Added public share pages for Forum posts and Now stories at `/share/posts/<id>` and `/share/now/<id>`.
 - Added Share buttons to Forum and Now cards that copy public WFF URLs to the clipboard.
-- Rendered WFF share URLs inside private messages as clickable post/story titles when metadata is available.
+- Rendered WFF share URLs inside private messages as clickable post/story titles when metadata is available, and routed in-app clicks directly to the Forum post or focused Now story.
+
+### Now
+
+- Added focused Now story views at `/now?story=<id>` with story comments for registered writing accounts.
 
 ## v1.4.4
 
