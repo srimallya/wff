@@ -70,6 +70,10 @@ class ShareRoutesTest(unittest.TestCase):
         body = response.get_data(as_text=True)
         self.assertIn('Civic Futures', body)
         self.assertIn('property="og:title"', body)
+        self.assertIn('property="og:image"', body)
+        self.assertIn('http://localhost/og-image-wff-v3.png', body)
+        self.assertIn('name="twitter:card" content="summary_large_image"', body)
+        self.assertIn('name="twitter:image"', body)
         self.assertIn(f'/posts/{self.essay_id}', body)
 
     def test_public_now_share_page_renders_story(self):
@@ -115,6 +119,7 @@ class ShareRoutesTest(unittest.TestCase):
         body = response.get_data(as_text=True)
         self.assertIn(f'https://thetrustcommons.com/wff/share/posts/{essay_id}', body)
         self.assertIn(f'https://thetrustcommons.com/wff/posts/{essay_id}', body)
+        self.assertIn('https://thetrustcommons.com/wff/og-image-wff-v3.png', body)
 
 
 if __name__ == '__main__':

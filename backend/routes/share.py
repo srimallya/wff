@@ -36,22 +36,35 @@ def _truncate(value, limit=240):
 def _share_page(title, description, canonical_path, app_path, meta_type='article'):
     canonical = _absolute_url(canonical_path)
     app_url = _absolute_url(app_path)
+    image_url = _absolute_url('/og-image-wff-v3.png')
     safe_title = escape(title or 'World Foresight Forum')
     safe_description = escape(description or 'A public post on World Foresight Forum.')
     safe_canonical = escape(canonical)
     safe_app_url = escape(app_url)
+    safe_image_url = escape(image_url)
+    safe_image_alt = escape('World Foresight Forum word mark')
     html = f'''<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{safe_title}</title>
+  <link rel="image_src" href="{safe_image_url}">
   <meta name="description" content="{safe_description}">
   <meta property="og:title" content="{safe_title}">
   <meta property="og:description" content="{safe_description}">
   <meta property="og:type" content="{escape(meta_type)}">
   <meta property="og:url" content="{safe_canonical}">
-  <meta name="twitter:card" content="summary">
+  <meta property="og:image" content="{safe_image_url}">
+  <meta property="og:image:url" content="{safe_image_url}">
+  <meta property="og:image:secure_url" content="{safe_image_url}">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="{safe_image_alt}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="{safe_image_url}">
+  <meta name="twitter:image:alt" content="{safe_image_alt}">
   <style>
     :root {{ color-scheme: dark; }}
     body {{
