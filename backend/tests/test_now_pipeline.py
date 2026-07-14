@@ -6,7 +6,7 @@ from flask import Flask
 
 from backend.models import NowSource, NowStory, NowStoryVote, User, db
 from backend.routes.now import now_bp
-from backend.services.now_pipeline import FeedRecord, ensure_default_sources
+from backend.services.now_pipeline import FeedRecord, ensure_default_sources, summarize_with_cerebras
 
 
 def make_app():
@@ -289,6 +289,30 @@ class NowPipelineTest(unittest.TestCase):
             self.assertEqual(story.summary_status, 'generated')
             self.assertIn('Full article text', story.original_content)
             self.assertEqual(story.url, 'https://example.com/beirut')
+
+    def test_cerebras_summary_request_has_a_bounded_timeout(self):
+        completion = type('Completion', (), {
+            'choices': [type('Choice', (), {
+                'message': type('Message', (), {
+                    'content': '{"status":"generated","summary":"Bounded summary.",'
+                               '"excerpt":"Bounded excerpt.","region":"Global",'
+                               '"region_code":"GLOBAL","reason":""}'
+                })()
+            })()]
+        })()
+
+        with patch.dict('os.environ', {
+            'CEREBRAS_API_KEY': 'test-key',
+            'WFF_NOW_SUMMARY_TIMEOUT_SECONDS': '7',
+        }), patch('cerebras.cloud.sdk.Cerebras') as client_class:
+            client_class.return_value.chat.completions.create.return_value = completion
+            result = summarize_with_cerebras(
+                'Test story', 'Test source', 'https://example.com/test',
+                'Article text', 'Fallback summary',
+            )
+
+        client_class.assert_called_once_with(api_key='test-key', timeout=7.0, max_retries=1)
+        self.assertEqual(result['summary_status'], 'generated')
 
 
 if __name__ == '__main__':

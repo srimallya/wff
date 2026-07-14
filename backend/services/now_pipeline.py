@@ -34,6 +34,14 @@ REQUEST_HEADERS = {
 _SSL_CONTEXT = None
 
 
+def bounded_float_env(name, default, minimum, maximum):
+    try:
+        value = float(os.environ.get(name, default))
+    except (TypeError, ValueError):
+        value = default
+    return max(minimum, min(value, maximum))
+
+
 @dataclass
 class FeedRecord:
     source: NowSource
@@ -275,7 +283,14 @@ def summarize_with_cerebras(title, source_name, url, article_text, fallback_summ
     try:
         from cerebras.cloud.sdk import Cerebras
 
-        client = Cerebras(api_key=api_key)
+        # The refresh scheduler is a single long-lived thread. An unbounded LLM
+        # request can therefore stop every subsequent news refresh while the web
+        # app itself continues to look healthy.
+        client = Cerebras(
+            api_key=api_key,
+            timeout=bounded_float_env('WFF_NOW_SUMMARY_TIMEOUT_SECONDS', 30, 5, 120),
+            max_retries=1,
+        )
         system_prompt = (
             'You clean RSS article text for World Foresight Forum. '
             'Return valid JSON only with keys: status, summary, excerpt, region, region_code, reason. '

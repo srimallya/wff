@@ -12,6 +12,14 @@ DEFAULT_VAPID_PRIVATE_KEY_FILE = os.path.join(
 )
 
 
+def push_timeout_seconds():
+    try:
+        value = float(os.environ.get('WFF_PUSH_TIMEOUT_SECONDS', 10))
+    except (TypeError, ValueError):
+        value = 10
+    return max(1, min(value, 60))
+
+
 def vapid_public_key():
     configured_key = os.environ.get('VAPID_PUBLIC_KEY', '').strip()
     if configured_key:
@@ -91,11 +99,16 @@ def send_push_notification(recipient_id, title, body, url):
                 data=payload,
                 vapid_private_key=vapid_private_key() or vapid_private_key_file(),
                 vapid_claims=vapid_claims(),
+                timeout=push_timeout_seconds(),
             )
             sent += 1
         except WebPushException as exc:
             if getattr(exc.response, 'status_code', None) in [404, 410]:
                 stale.append(subscription)
+        except Exception:
+            # Push delivery must never prevent an already-ingested story from
+            # completing its refresh cycle.
+            continue
 
     for subscription in stale:
         db.session.delete(subscription)
